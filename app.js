@@ -780,18 +780,18 @@ function showConfirmDialog(title, message, onConfirm, okLabel) {
     confirmTitle.textContent = title;
     confirmMessage.textContent = message;
     showModal(confirmModal);
-    // Remove old listeners by cloning
-    const newOkBtn = confirmOkBtn.cloneNode(true);
-    confirmOkBtn.parentNode.replaceChild(newOkBtn, confirmOkBtn);
-    const okBtn = document.getElementById('confirmOkBtn');
-    okBtn.textContent = okLabel || 'Delete';
+    // Remove old listeners by cloning -- always look up from DOM to avoid stale references
+    const currentOkBtn = document.getElementById('confirmOkBtn');
+    const newOkBtn = currentOkBtn.cloneNode(true);
+    currentOkBtn.parentNode.replaceChild(newOkBtn, currentOkBtn);
+    newOkBtn.textContent = okLabel || 'Delete';
     // Apply danger style only for delete, primary for others
     if (okLabel && okLabel !== 'Delete') {
-        okBtn.className = 'btn btn-primary';
+        newOkBtn.className = 'btn btn-primary';
     } else {
-        okBtn.className = 'btn btn-danger';
+        newOkBtn.className = 'btn btn-danger';
     }
-    okBtn.addEventListener('click', () => {
+    newOkBtn.addEventListener('click', () => {
         hideModal(confirmModal);
         onConfirm();
     });
