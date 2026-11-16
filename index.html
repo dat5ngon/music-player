@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Free Music Player</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">⎋</span>
+                <h1>Free Music Player</h1>
+            </div>
+            <p class="subtitle">Full-length free music from Internet Archive</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Playlists (Primary) -->
+            <section class="panel playlists-panel">
+                <h2 class="panel-title">
+                    <div class="panel-title-left">
+                        <span>My Playlists</span>
+                        <div class="view-toggle">
+                            <button id="listViewBtn" class="view-btn active" title="List view">☰</button>
+                            <button id="gridViewBtn" class="view-btn" title="Grid view">⊞</button>
+                        </div>
+                    </div>
+                    <div class="panel-title-actions">
+                        <div class="dropdown-wrap">
+                            <button id="importBtn" class="btn btn-small" title="Import">↓ Import ▾</button>
+                            <div id="importDropdown" class="dropdown-menu hidden">
+                                <button class="dropdown-item" id="importFileBtn">From File</button>
+                                <button class="dropdown-item" id="importFromArchiveBtn">From Internet Archive</button>
+                            </div>
+                        </div>
+                        <button id="exportBtn" class="btn btn-small" title="Export playlist">↑ Export</button>
+                        <button id="newPlaylistBtn" class="btn btn-small">+ New</button>
+                    </div>
+                </h2>
+                <div id="playlistList" class="playlist-list"></div>
+
+                <!-- Playlist Tracks -->
+                <div id="playlistTracks" class="playlist-tracks hidden">
+                    <div class="playlist-header">
+                        <button id="backToPlaylists" class="btn btn-small">‹ Back</button>
+                        <h3 id="currentPlaylistName" title="Click to rename"></h3>
+                        <div class="playlist-actions">
+                            <button id="playAllBtn" class="btn btn-small btn-primary">► Play All</button>
+                            <button id="deletePlaylistBtn" class="btn btn-small btn-danger">Delete</button>
+                        </div>
+                    </div>
+                    <div id="playlistTrackList" class="track-list"></div>
+                </div>
+            </section>
+
+            <!-- Search (Secondary) -->
+            <section class="panel results-panel">
+                <h2 class="panel-title">
+                    <div class="panel-title-left">
+                        <span>Find Music</span>
+                        <span id="resultCount" class="count"></span>
+                    </div>
+                    <a href="https://archive.org/upload" target="_blank" rel="noopener noreferrer" class="btn btn-small btn-upload" title="Upload your music to Internet Archive, then import it here">↗ Upload</a>
+                </h2>
+                <div class="search-inline">
+                    <div class="search-bar">
+                        <input type="text" id="searchInput" placeholder="Search songs, artists..." autocomplete="off">
+                        <button id="searchBtn" class="btn btn-primary btn-small">Search</button>
+                    </div>
+                </div>
+                <div id="searchResults" class="track-list">
+                    <div class="empty-state">
+                        <span class="empty-icon">♪</span>
+                        <p>Search for music to add to your playlists</p>
+                    </div>
+                </div>
+                <div id="loadingIndicator" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Searching...</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Now Playing Bar -->
+        <div id="nowPlaying" class="now-playing hidden">
+            <div class="now-playing-info">
+                <img id="npImage" src="" alt="" class="np-image">
+                <div class="np-details">
+                    <span id="npTitle" class="np-title"></span>
+                    <span id="npArtist" class="np-artist"></span>
+                </div>
+            </div>
+            <div class="now-playing-controls">
+                <button id="repeatBtn" class="control-btn control-btn-repeat" title="Repeat: Off">↻</button>
+                <button id="prevBtn" class="control-btn" title="Previous">⟨⟨</button>
+                <button id="playPauseBtn" class="control-btn control-btn-main" title="Play/Pause">►</button>
+                <button id="nextBtn" class="control-btn" title="Next">⟩⟩</button>
+            </div>
+            <div class="now-playing-progress">
+                <span id="currentTime" class="time">0:00</span>
+                <input type="range" id="progressBar" class="progress-bar" min="0" max="100" value="0">
+                <span id="totalTime" class="time">0:00</span>
+            </div>
+            <div class="now-playing-volume">
+                <span class="volume-icon" id="volumeIcon">◉</span>
+                <input type="range" id="volumeBar" class="volume-bar" min="0" max="100" value="80">
+            </div>
+        </div>
+
+        <!-- New Playlist Modal -->
+        <div id="playlistModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Create New Playlist</h3>
+                <input type="text" id="playlistNameInput" placeholder="Playlist name..." maxlength="50">
+                <div class="modal-actions">
+                    <button id="cancelPlaylistBtn" class="btn">Cancel</button>
+                    <button id="createPlaylistBtn" class="btn btn-primary">Create</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add to Playlist Modal -->
+        <div id="addToPlaylistModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Add to Playlist</h3>
+                <div id="playlistSelectList" class="playlist-select-list"></div>
+                <div class="modal-actions">
+                    <button id="cancelAddBtn" class="btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Playlists Modal -->
+        <div id="exportModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="export-title-row">
+                    <h3>Export Playlists</h3>
+                    <label class="checkbox-label export-select-all-label">
+                        <input type="checkbox" id="exportSelectAll" checked>
+                        <span>Select All</span>
+                    </label>
+                </div>
+                <div id="exportSelectList" class="export-checklist"></div>
+                <div class="modal-actions">
+                    <button id="cancelExportBtn" class="btn">Cancel</button>
+                    <button id="doExportBtn" class="btn btn-primary">Export</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import from Archive Modal -->
+        <div id="archiveImportModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Import from Internet Archive</h3>
+                <p class="modal-description">
+                    Enter an item URL, identifier, or user profile to import tracks.
+                    <a href="https://archive.org/upload" target="_blank" rel="noopener noreferrer" class="inline-link">Upload your music first</a> if you haven't already.
+                </p>
+                <input type="text" id="archiveIdInput" placeholder="e.g. @username, my-album, or archive.org/details/..." maxlength="200">
+                <div id="archiveImportStatus" class="import-status hidden"></div>
+                <div class="modal-actions">
+                    <button id="cancelArchiveImportBtn" class="btn">Cancel</button>
+                    <button id="doArchiveImportBtn" class="btn btn-primary">Import</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden file input for import -->
+        <input type="file" id="importFileInput" accept=".json" style="display:none">
+
+        <!-- Confirm Dialog -->
+        <div id="confirmModal" class="modal hidden">
+            <div class="modal-content modal-confirm">
+                <h3 id="confirmTitle">Confirm</h3>
+                <p id="confirmMessage" class="confirm-message"></p>
+                <div class="modal-actions">
+                    <button id="confirmCancelBtn" class="btn">Cancel</button>
+                    <button id="confirmOkBtn" class="btn btn-danger">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="audioPlayer"></audio>
+    <script src="app.js"></script>
+</body>
+</html>
