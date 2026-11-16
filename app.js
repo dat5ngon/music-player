@@ -1032,7 +1032,27 @@ function safePlaceRequest(action, params = {}) {
     });
 }
 
+function handleSyncError(err) {
+    setSyncStatus('');
+    const isAuthError = err.message && (
+        err.message.includes('Not authenticated') ||
+        err.message.includes('not responding') ||
+        err.message.includes('sign in')
+    );
+    if (isAuthError) {
+        showConfirmDialog(
+            'Sign in Required',
+            'You need to sign in to Safe Place first to use Google Drive backup. Open Safe Place to sign in?',
+            () => window.open('https://dat5ngon.github.io/safe-place/', '_blank'),
+            'Open Safe Place'
+        );
+    } else {
+        showConfirmDialog('Sync Error', err.message || 'An unknown error occurred.', () => {}, 'OK');
+    }
+}
+
 async function syncExportPlaylists() {
+    if (playlists.length === 0) { showToast('No playlists to export'); return; }
     try {
         setSyncStatus('Backing up...');
         exportBtn.disabled = true;
@@ -1046,7 +1066,7 @@ async function syncExportPlaylists() {
         setSyncStatus(`Backed up ${playlists.length} playlist${playlists.length !== 1 ? 's' : ''}`);
         showToast('Playlists backed up to Google Drive');
     } catch (err) {
-        setSyncStatus(err.message, true);
+        handleSyncError(err);
     } finally {
         exportBtn.disabled = false;
     }
@@ -1062,14 +1082,15 @@ async function syncImportPlaylists() {
         });
 
         if (!result.data) {
-            setSyncStatus('No backup found on Drive');
+            setSyncStatus('');
             showToast('No playlists found on Google Drive');
             return;
         }
 
         const imported = result.data;
         if (!Array.isArray(imported)) {
-            setSyncStatus('Invalid backup data', true);
+            setSyncStatus('');
+            showConfirmDialog('Sync Error', 'Invalid backup data on Google Drive.', () => {}, 'OK');
             return;
         }
 
@@ -1104,7 +1125,7 @@ async function syncImportPlaylists() {
         setSyncStatus(`Restored: ${summary}`);
         showToast(`Restore complete: ${summary}`);
     } catch (err) {
-        setSyncStatus(err.message, true);
+        handleSyncError(err);
     }
 }
 
