@@ -18,6 +18,8 @@ let hasMoreResults = false;
 let isLoadingMore = false;
 let sortOrder = 'downloads+desc'; // 'downloads+desc', 'date+desc', 'titleSorter+asc'
 let repeatMode = 'none'; // 'none', 'all', 'one'
+let playlistViewMode = localStorage.getItem('playlist_view_mode') || 'grid'; // 'list' or 'grid'
+let pendingTrackForNewPlaylist = null; // track to auto-add after creating a new playlist
 
 // ---- DOM Elements ----
 const audio = document.getElementById('audioPlayer');
@@ -58,56 +60,44 @@ const addToPlaylistModal = document.getElementById('addToPlaylistModal');
 const playlistSelectList = document.getElementById('playlistSelectList');
 const cancelAddBtn = document.getElementById('cancelAddBtn');
 
+const confirmModal = document.getElementById('confirmModal');
+const confirmTitle = document.getElementById('confirmTitle');
+const confirmMessage = document.getElementById('confirmMessage');
+const confirmOkBtn = document.getElementById('confirmOkBtn');
+const confirmCancelBtn = document.getElementById('confirmCancelBtn');
+
+const exportModal = document.getElementById('exportModal');
+const exportSelectList = document.getElementById('exportSelectList');
+const exportSelectAll = document.getElementById('exportSelectAll');
+const cancelExportBtn = document.getElementById('cancelExportBtn');
+const doExportBtn = document.getElementById('doExportBtn');
+const importFileInput = document.getElementById('importFileInput');
+
+const archiveImportModal = document.getElementById('archiveImportModal');
+const archiveIdInput = document.getElementById('archiveIdInput');
+const archiveImportStatus = document.getElementById('archiveImportStatus');
+const cancelArchiveImportBtn = document.getElementById('cancelArchiveImportBtn');
+const doArchiveImportBtn = document.getElementById('doArchiveImportBtn');
+const importFromArchiveBtn = document.getElementById('importFromArchiveBtn');
+
 // ---- Initialization ----
 function init() {
     renderPlaylists();
     setupEventListeners();
     audio.volume = 0.8;
-    searchTracks('rock');
+    applyViewMode(playlistViewMode);
 }
 
 function setupEventListeners() {
     searchBtn.addEventListener('click', () => {
         const q = searchInput.value.trim();
-        if (q) {
-            document.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
-            searchTracks(q);
-        }
+        if (q) searchTracks(q);
     });
     searchInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             const q = searchInput.value.trim();
-            if (q) {
-                document.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
-                searchTracks(q);
-            }
-        }
-    });
-
-    document.querySelectorAll('.tag').forEach(tag => {
-        tag.addEventListener('click', () => {
-            if (tag.classList.contains('active')) {
-                // Deactivate -- clear filter
-                tag.classList.remove('active');
-                searchInput.value = '';
-            } else {
-                document.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
-                tag.classList.add('active');
-                searchInput.value = tag.dataset.tag;
-                searchTracks(tag.dataset.tag);
-            }
-        });
-    });
-
-    // Sort buttons
-    document.querySelectorAll('.sort-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            sortOrder = btn.dataset.sort;
-            const q = searchInput.value.trim() || lastSearchQuery;
             if (q) searchTracks(q);
-        });
+        }
     });
 
     playPauseBtn.addEventListener('click', togglePlayPause);
@@ -135,8 +125,8 @@ function setupEventListeners() {
         setTimeout(playNext, 1000);
     });
 
-    newPlaylistBtn.addEventListener('click', () => showModal(playlistModal));
-    cancelPlaylistBtn.addEventListener('click', () => hideModal(playlistModal));
+    newPlaylistBtn.addEventListener('click', () => { pendingTrackForNewPlaylist = null; showModal(playlistModal); });
+    cancelPlaylistBtn.addEventListener('click', () => { pendingTrackForNewPlaylist = null; hideModal(playlistModal); });
     createPlaylistBtn.addEventListener('click', createPlaylist);
     playlistNameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') createPlaylist(); });
     cancelAddBtn.addEventListener('click', () => hideModal(addToPlaylistModal));
@@ -144,8 +134,46 @@ function setupEventListeners() {
     backToPlaylists.addEventListener('click', showPlaylistList);
     playAllBtn.addEventListener('click', playAllPlaylistTracks);
     deletePlaylistBtn.addEventListener('click', deleteCurrentPlaylist);
+    currentPlaylistName.addEventListener('click', startEditPlaylistName);
 
-    [playlistModal, addToPlaylistModal].forEach(modal => {
+    // View toggle
+    document.getElementById('listViewBtn').addEventListener('click', () => setViewMode('list'));
+    document.getElementById('gridViewBtn').addEventListener('click', () => setViewMode('grid'));
+
+    // Import / Export
+    document.getElementById('exportBtn').addEventListener('click', showExportModal);
+    cancelExportBtn.addEventListener('click', () => hideModal(exportModal));
+    doExportBtn.addEventListener('click', doExportSelected);
+    exportSelectAll.addEventListener('change', toggleExportSelectAll);
+    importFileInput.addEventListener('change', handleImportFile);
+
+    // Import dropdown
+    const importDropdown = document.getElementById('importDropdown');
+    document.getElementById('importBtn').addEventListener('click', (e) => {
+        e.stopPropagation();
+        importDropdown.classList.toggle('hidden');
+    });
+    document.getElementById('importFileBtn').addEventListener('click', () => {
+        importDropdown.classList.add('hidden');
+        importFileInput.click();
+    });
+    importFromArchiveBtn.addEventListener('click', () => {
+        importDropdown.classList.add('hidden');
+        archiveIdInput.value = '';
+        archiveImportStatus.classList.add('hidden');
+        showModal(archiveImportModal);
+    });
+    // Close dropdown on outside click
+    document.addEventListener('click', () => importDropdown.classList.add('hidden'));
+
+    // Archive import modal
+    cancelArchiveImportBtn.addEventListener('click', () => hideModal(archiveImportModal));
+    doArchiveImportBtn.addEventListener('click', importFromArchive);
+    archiveIdInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') importFromArchive(); });
+
+    confirmCancelBtn.addEventListener('click', () => hideModal(confirmModal));
+
+    [playlistModal, addToPlaylistModal, confirmModal, exportModal, archiveImportModal].forEach(modal => {
         modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(modal); });
     });
 
@@ -571,19 +599,64 @@ function renderPlaylists() {
     playlists.forEach(pl => {
         const div = document.createElement('div');
         div.className = 'playlist-item';
-        div.innerHTML = `<div class="playlist-item-info"><span class="playlist-icon">♪</span><div><div class="playlist-name">${escapeHtml(pl.name)}</div><div class="playlist-count">${pl.tracks.length} track${pl.tracks.length !== 1 ? 's' : ''}</div></div></div>`;
+
+        // Get cover image from first track (if any)
+        const coverUrl = pl.tracks.length > 0 && pl.tracks[0].image
+            ? pl.tracks[0].image
+            : placeholderImage();
+
+        div.innerHTML = `
+            <div class="playlist-item-info">
+                <div class="playlist-cover-wrap">
+                    <img class="playlist-cover" src="${coverUrl}" alt="${escapeHtml(pl.name)}" loading="lazy" onerror="this.src='${placeholderImage()}'">
+                </div>
+                <span class="playlist-icon">♪</span>
+                <div class="playlist-item-text">
+                    <div class="playlist-name">${escapeHtml(pl.name)}</div>
+                    <div class="playlist-count">${pl.tracks.length} track${pl.tracks.length !== 1 ? 's' : ''}</div>
+                </div>
+            </div>`;
         div.addEventListener('click', () => openPlaylist(pl.id));
         playlistList.appendChild(div);
     });
 }
 
+function setViewMode(mode) {
+    playlistViewMode = mode;
+    localStorage.setItem('playlist_view_mode', mode);
+    applyViewMode(mode);
+}
+
+function applyViewMode(mode) {
+    const listBtn = document.getElementById('listViewBtn');
+    const gridBtn = document.getElementById('gridViewBtn');
+
+    if (mode === 'grid') {
+        playlistList.classList.add('grid-view');
+        gridBtn.classList.add('active');
+        listBtn.classList.remove('active');
+    } else {
+        playlistList.classList.remove('grid-view');
+        listBtn.classList.add('active');
+        gridBtn.classList.remove('active');
+    }
+}
+
 function createPlaylist() {
     const name = playlistNameInput.value.trim();
     if (!name) { showToast('Enter a playlist name'); return; }
-    playlists.push({ id: 'pl_' + Date.now(), name, tracks: [], createdAt: new Date().toISOString() });
+    const newPl = { id: 'pl_' + Date.now(), name, tracks: [], createdAt: new Date().toISOString() };
+
+    // Auto-add pending track if coming from "Add to Playlist > Create new"
+    if (pendingTrackForNewPlaylist) {
+        newPl.tracks.push({ ...pendingTrackForNewPlaylist });
+        pendingTrackForNewPlaylist = null;
+    }
+
+    playlists.push(newPl);
     savePlaylists(); renderPlaylists(); hideModal(playlistModal);
     playlistNameInput.value = '';
-    showToast(`Playlist "${name}" created`);
+    showToast(newPl.tracks.length > 0 ? `Created "${name}" with 1 track` : `Playlist "${name}" created`);
 }
 
 function openPlaylist(id) {
@@ -607,6 +680,42 @@ function renderPlaylistTracks(pl) {
     });
 }
 
+function startEditPlaylistName() {
+    if (!currentPlaylistId) return;
+    const pl = playlists.find(p => p.id === currentPlaylistId);
+    if (!pl) return;
+
+    const h3 = currentPlaylistName;
+    const oldName = pl.name;
+
+    // Replace h3 content with an input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = oldName;
+    input.maxLength = 50;
+    input.className = 'playlist-name-edit';
+    h3.textContent = '';
+    h3.appendChild(input);
+    input.focus();
+    input.select();
+
+    function commitEdit() {
+        const newName = input.value.trim();
+        if (newName && newName !== oldName) {
+            pl.name = newName;
+            savePlaylists();
+            showToast('Playlist renamed');
+        }
+        h3.textContent = pl.name;
+    }
+
+    input.addEventListener('blur', commitEdit);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+        if (e.key === 'Escape') { input.value = oldName; input.blur(); }
+    });
+}
+
 function showPlaylistList() {
     currentPlaylistId = null;
     playlistTracks.classList.add('hidden');
@@ -615,8 +724,21 @@ function showPlaylistList() {
 }
 
 function showAddToPlaylistModal(track) {
-    if (playlists.length === 0) { showToast('Create a playlist first'); showModal(playlistModal); return; }
     playlistSelectList.innerHTML = '';
+
+    // "Create new playlist" option at top
+    const createDiv = document.createElement('div');
+    createDiv.className = 'playlist-select-item playlist-select-create';
+    createDiv.innerHTML = `<span class="playlist-icon">+</span><span>Create new playlist</span>`;
+    createDiv.addEventListener('click', () => {
+        hideModal(addToPlaylistModal);
+        // Show create playlist modal, then auto-add the track after creation
+        pendingTrackForNewPlaylist = track;
+        showModal(playlistModal);
+    });
+    playlistSelectList.appendChild(createDiv);
+
+    // Existing playlists
     playlists.forEach(pl => {
         const div = document.createElement('div');
         div.className = 'playlist-select-item';
@@ -626,6 +748,9 @@ function showAddToPlaylistModal(track) {
         else { div.style.opacity = '0.5'; div.style.cursor = 'default'; }
         playlistSelectList.appendChild(div);
     });
+
+    const modalTitle = addToPlaylistModal.querySelector('h3');
+    modalTitle.textContent = 'Add to Playlist';
     showModal(addToPlaylistModal);
 }
 
@@ -649,10 +774,330 @@ function removeTrackFromPlaylist(pid, tid) {
 function deleteCurrentPlaylist() {
     if (!currentPlaylistId) return;
     const pl = playlists.find(p => p.id === currentPlaylistId);
-    if (!pl || !confirm(`Delete playlist "${pl.name}"?`)) return;
-    playlists = playlists.filter(p => p.id !== currentPlaylistId);
-    savePlaylists(); showPlaylistList();
-    showToast('Playlist deleted');
+    if (!pl) return;
+    showConfirmDialog(
+        'Delete Playlist',
+        `Are you sure you want to delete "${pl.name}"? This cannot be undone.`,
+        () => {
+            playlists = playlists.filter(p => p.id !== currentPlaylistId);
+            savePlaylists(); showPlaylistList();
+            showToast('Playlist deleted');
+        }
+    );
+}
+
+function showConfirmDialog(title, message, onConfirm, okLabel) {
+    confirmTitle.textContent = title;
+    confirmMessage.textContent = message;
+    showModal(confirmModal);
+    // Remove old listeners by cloning
+    const newOkBtn = confirmOkBtn.cloneNode(true);
+    confirmOkBtn.parentNode.replaceChild(newOkBtn, confirmOkBtn);
+    const okBtn = document.getElementById('confirmOkBtn');
+    okBtn.textContent = okLabel || 'Delete';
+    // Apply danger style only for delete, primary for others
+    if (okLabel && okLabel !== 'Delete') {
+        okBtn.className = 'btn btn-primary';
+    } else {
+        okBtn.className = 'btn btn-danger';
+    }
+    okBtn.addEventListener('click', () => {
+        hideModal(confirmModal);
+        onConfirm();
+    });
+}
+
+// ---- Import / Export ----
+function showExportModal() {
+    if (playlists.length === 0) { showToast('No playlists to export'); return; }
+    exportSelectList.innerHTML = '';
+    exportSelectAll.checked = true;
+    playlists.forEach(pl => {
+        const label = document.createElement('label');
+        label.className = 'checkbox-label export-item';
+        label.innerHTML = `
+            <input type="checkbox" class="export-checkbox" data-id="${pl.id}" checked>
+            <span>${escapeHtml(pl.name)} (${pl.tracks.length} tracks)</span>`;
+        label.querySelector('.export-checkbox').addEventListener('change', updateExportSelectAll);
+        exportSelectList.appendChild(label);
+    });
+    showModal(exportModal);
+}
+
+function toggleExportSelectAll() {
+    const checked = exportSelectAll.checked;
+    exportSelectList.querySelectorAll('.export-checkbox').forEach(cb => cb.checked = checked);
+}
+
+function updateExportSelectAll() {
+    const all = exportSelectList.querySelectorAll('.export-checkbox');
+    const checkedCount = exportSelectList.querySelectorAll('.export-checkbox:checked').length;
+    exportSelectAll.checked = checkedCount === all.length;
+    exportSelectAll.indeterminate = checkedCount > 0 && checkedCount < all.length;
+}
+
+function doExportSelected() {
+    const selectedIds = [];
+    exportSelectList.querySelectorAll('.export-checkbox:checked').forEach(cb => {
+        selectedIds.push(cb.dataset.id);
+    });
+    if (selectedIds.length === 0) { showToast('Select at least one playlist'); return; }
+
+    const selectedPlaylists = playlists.filter(p => selectedIds.includes(p.id));
+    const data = {
+        playlists: selectedPlaylists.map(pl => ({
+            name: pl.name,
+            tracks: pl.tracks
+        })),
+        exportedAt: new Date().toISOString(),
+        version: 2
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const now = new Date();
+    const yy = String(now.getFullYear()).slice(-2);
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    const filename = `playlist_backup_${yy}_${mm}_${dd}.json`;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    hideModal(exportModal);
+    showToast(`Exported ${selectedPlaylists.length} playlist${selectedPlaylists.length > 1 ? 's' : ''}`);
+}
+
+function handleImportFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    importFileInput.value = '';
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+        try {
+            const data = JSON.parse(evt.target.result);
+            // v2 format: multiple playlists
+            if (data.playlists && Array.isArray(data.playlists)) {
+                importMultiplePlaylists(data.playlists);
+                return;
+            }
+            // v1 format: single playlist
+            if (data.name && Array.isArray(data.tracks)) {
+                importMultiplePlaylists([data]);
+                return;
+            }
+            showToast('Invalid playlist file');
+        } catch {
+            showToast('Failed to read playlist file');
+        }
+    };
+    reader.readAsText(file);
+}
+
+function importMultiplePlaylists(playlistsData) {
+    const conflicts = [];
+    const newOnes = [];
+
+    for (const pl of playlistsData) {
+        if (!pl.name || !Array.isArray(pl.tracks)) continue;
+        const existing = playlists.find(p => p.name.toLowerCase() === pl.name.toLowerCase());
+        if (existing) {
+            conflicts.push({ existing, imported: pl });
+        } else {
+            newOnes.push(pl);
+        }
+    }
+
+    // Add non-conflicting playlists immediately
+    for (const pl of newOnes) {
+        playlists.push({
+            id: 'pl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            name: pl.name,
+            tracks: pl.tracks,
+            createdAt: new Date().toISOString()
+        });
+    }
+
+    if (conflicts.length > 0) {
+        const names = conflicts.map(c => `"${c.existing.name}"`).join(', ');
+        showConfirmDialog(
+            'Playlists Already Exist',
+            `${conflicts.length} playlist${conflicts.length > 1 ? 's' : ''} already exist${conflicts.length === 1 ? 's' : ''}: ${names}. Overwrite with imported versions?`,
+            () => {
+                for (const c of conflicts) {
+                    c.existing.tracks = c.imported.tracks;
+                    c.existing.createdAt = new Date().toISOString();
+                }
+                savePlaylists();
+                renderPlaylists();
+                showToast(`Imported ${newOnes.length + conflicts.length} playlists (${conflicts.length} overwritten)`);
+            },
+            'Overwrite'
+        );
+        // Save the non-conflicting ones regardless
+        if (newOnes.length > 0) {
+            savePlaylists();
+            renderPlaylists();
+        }
+    } else {
+        savePlaylists();
+        renderPlaylists();
+        showToast(`Imported ${newOnes.length} playlist${newOnes.length > 1 ? 's' : ''}`);
+    }
+}
+
+// ---- Import from Internet Archive ----
+let pendingArchiveTracks = [];
+
+async function importFromArchive() {
+    let input = archiveIdInput.value.trim();
+    if (!input) { showToast('Enter an Archive identifier or URL'); return; }
+
+    // Detect user profile URL: archive.org/details/@username
+    const userMatch = input.match(/archive\.org\/details\/@([^/?#]+)/) || input.match(/^@(.+)$/);
+    if (userMatch) {
+        await importFromArchiveUser(userMatch[1]);
+        return;
+    }
+
+    // Extract identifier from item URL if pasted
+    const urlMatch = input.match(/archive\.org\/details\/([^/?#]+)/);
+    if (urlMatch) input = urlMatch[1];
+
+    // Clean up identifier
+    const identifier = input.replace(/[^a-zA-Z0-9._-]/g, '');
+    if (!identifier) { showToast('Invalid identifier'); return; }
+
+    // Show loading state
+    archiveImportStatus.classList.remove('hidden');
+    archiveImportStatus.innerHTML = '<div class="spinner" style="width:20px;height:20px;margin:0 auto 8px"></div><p>Fetching tracks...</p>';
+    doArchiveImportBtn.disabled = true;
+
+    try {
+        const item = { identifier, title: identifier, creator: '', downloads: 0 };
+        const tracks = await fetchArchiveItemTracks(item);
+
+        if (tracks.length === 0) {
+            archiveImportStatus.innerHTML = '<p class="import-error">No playable audio tracks found in this item. Make sure the item contains MP3, OGG, or M4A files.</p>';
+            doArchiveImportBtn.disabled = false;
+            return;
+        }
+
+        // Store tracks and show playlist picker
+        pendingArchiveTracks = tracks;
+        hideModal(archiveImportModal);
+        showArchivePlaylistPicker(tracks, identifier);
+    } catch {
+        archiveImportStatus.innerHTML = '<p class="import-error">Failed to fetch item. Check the identifier and try again.</p>';
+    }
+
+    doArchiveImportBtn.disabled = false;
+}
+
+async function importFromArchiveUser(username) {
+    archiveImportStatus.classList.remove('hidden');
+    archiveImportStatus.innerHTML = '<div class="spinner" style="width:20px;height:20px;margin:0 auto 8px"></div><p>Fetching uploads by @' + escapeHtml(username) + '...</p>';
+    doArchiveImportBtn.disabled = true;
+
+    try {
+        // Search for all audio items uploaded by this user
+        const searchQuery = `uploader:${username} AND mediatype:audio`;
+        const url = `${IA_SEARCH}?q=${encodeURIComponent(searchQuery)}&fl[]=identifier,title,creator,downloads&sort[]=addeddate+desc&rows=50&output=json`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        const items = data.response?.docs || [];
+        if (items.length === 0) {
+            archiveImportStatus.innerHTML = '<p class="import-error">No audio uploads found for @' + escapeHtml(username) + '.</p>';
+            doArchiveImportBtn.disabled = false;
+            return;
+        }
+
+        archiveImportStatus.innerHTML = '<div class="spinner" style="width:20px;height:20px;margin:0 auto 8px"></div><p>Found ' + items.length + ' item' + (items.length !== 1 ? 's' : '') + '. Fetching tracks...</p>';
+
+        // Fetch tracks from all items in parallel
+        const results = await Promise.allSettled(
+            items.map(item => fetchArchiveItemTracks(item))
+        );
+
+        const allTracks = [];
+        for (const result of results) {
+            if (result.status === 'fulfilled' && result.value.length > 0) {
+                allTracks.push(...result.value);
+            }
+        }
+
+        if (allTracks.length === 0) {
+            archiveImportStatus.innerHTML = '<p class="import-error">No playable audio tracks found in uploads by @' + escapeHtml(username) + '.</p>';
+            doArchiveImportBtn.disabled = false;
+            return;
+        }
+
+        pendingArchiveTracks = allTracks;
+        hideModal(archiveImportModal);
+        showArchivePlaylistPicker(allTracks, '@' + username);
+    } catch {
+        archiveImportStatus.innerHTML = '<p class="import-error">Failed to fetch uploads. Check the username and try again.</p>';
+    }
+
+    doArchiveImportBtn.disabled = false;
+}
+
+function showArchivePlaylistPicker(tracks, identifier) {
+    const count = tracks.length;
+    const label = `${count} track${count !== 1 ? 's' : ''}`;
+
+    // Reuse the addToPlaylistModal but with a "Create new" option
+    playlistSelectList.innerHTML = '';
+
+    // "Create new playlist" option at top
+    const createDiv = document.createElement('div');
+    createDiv.className = 'playlist-select-item playlist-select-create';
+    createDiv.innerHTML = `<span class="playlist-icon">+</span><span>Create new playlist (${label})</span>`;
+    createDiv.addEventListener('click', () => {
+        hideModal(addToPlaylistModal);
+        // Create playlist named after the identifier
+        const name = identifier.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const newPl = { id: 'pl_' + Date.now(), name, tracks: [...tracks], createdAt: new Date().toISOString() };
+        playlists.push(newPl);
+        savePlaylists();
+        renderPlaylists();
+        openPlaylist(newPl.id);
+        showToast(`Created "${name}" with ${label}`);
+    });
+    playlistSelectList.appendChild(createDiv);
+
+    // Existing playlists
+    playlists.forEach(pl => {
+        const div = document.createElement('div');
+        div.className = 'playlist-select-item';
+        div.innerHTML = `<span class="playlist-icon">♪</span><span>${escapeHtml(pl.name)} (${pl.tracks.length})</span>`;
+        div.addEventListener('click', () => {
+            hideModal(addToPlaylistModal);
+            let added = 0;
+            for (const track of tracks) {
+                if (!pl.tracks.some(t => t.id === track.id)) {
+                    pl.tracks.push({ ...track });
+                    added++;
+                }
+            }
+            savePlaylists();
+            if (currentPlaylistId === pl.id) renderPlaylistTracks(pl);
+            renderPlaylists();
+            showToast(`Added ${added} track${added !== 1 ? 's' : ''} to "${pl.name}"`);
+            openPlaylist(pl.id);
+        });
+        playlistSelectList.appendChild(div);
+    });
+
+    // Update modal title
+    const modalTitle = addToPlaylistModal.querySelector('h3');
+    modalTitle.textContent = `Add ${label} to Playlist`;
+    showModal(addToPlaylistModal);
 }
 
 function playAllPlaylistTracks() {
@@ -786,12 +1231,12 @@ const SAFE_PLACE_APP_NAME = 'music-player';
 const SAFE_PLACE_FILE_NAME = 'playlists.json';
 
 let syncTokenClient = null;
-let syncStorage = null; // SafePlaceStorage instance
+let syncStorage = null;
 let syncAppFolderId = null;
 
 const syncSignInBtn = document.getElementById('syncSignInBtn');
-const exportBtn = document.getElementById('exportBtn');
-const importBtn = document.getElementById('importBtn');
+const syncExportBtn = document.getElementById('syncExportBtn');
+const syncImportBtn = document.getElementById('syncImportBtn');
 const syncSignOutBtn = document.getElementById('syncSignOutBtn');
 const syncStatus = document.getElementById('syncStatus');
 
@@ -817,19 +1262,16 @@ async function handleSyncAuthResponse(response) {
     try {
         setSyncStatus('Connecting...');
 
-        // Create storage instance and find/create root folder
         syncStorage = new SafePlaceStorage(response.access_token, null);
         const rootFolder = await syncStorage.getOrCreateFolder('SafePlace', 'root');
         syncStorage.rootFolderId = rootFolder.id;
 
-        // Get app-specific folder
         const appFolder = await syncStorage.getAppFolder(SAFE_PLACE_APP_NAME);
         syncAppFolderId = appFolder.id;
 
-        // Show sync buttons, hide sign-in
         syncSignInBtn.classList.add('hidden');
-        exportBtn.classList.remove('hidden');
-        importBtn.classList.remove('hidden');
+        syncExportBtn.classList.remove('hidden');
+        syncImportBtn.classList.remove('hidden');
         syncSignOutBtn.classList.remove('hidden');
         setSyncStatus('Connected');
     } catch (err) {
@@ -853,55 +1295,50 @@ function handleSyncSignOut() {
     syncAppFolderId = null;
 
     syncSignInBtn.classList.remove('hidden');
-    exportBtn.classList.add('hidden');
-    importBtn.classList.add('hidden');
+    syncExportBtn.classList.add('hidden');
+    syncImportBtn.classList.add('hidden');
     syncSignOutBtn.classList.add('hidden');
     setSyncStatus('');
 }
 
-async function exportPlaylists() {
+async function syncExportPlaylists() {
     if (!syncStorage || !syncAppFolderId) {
         setSyncStatus('Not connected', true);
         return;
     }
 
     try {
-        setSyncStatus('Exporting...');
-        exportBtn.disabled = true;
+        setSyncStatus('Backing up...');
+        syncExportBtn.disabled = true;
 
         const data = JSON.stringify(playlists, null, 2);
 
-        // Check if file already exists -- delete it first to avoid duplicates
+        // Delete existing file to avoid duplicates
         const existing = await syncStorage.findFile(SAFE_PLACE_FILE_NAME, syncAppFolderId);
         if (existing) {
             await syncStorage.deleteFile(existing.id);
         }
 
-        await syncStorage.uploadData(
-            SAFE_PLACE_FILE_NAME,
-            data,
-            'application/json',
-            syncAppFolderId
-        );
+        await syncStorage.uploadData(SAFE_PLACE_FILE_NAME, data, 'application/json', syncAppFolderId);
 
-        setSyncStatus(`Exported ${playlists.length} playlist${playlists.length !== 1 ? 's' : ''}`);
-        showToast('Playlists exported to Google Drive');
+        setSyncStatus(`Backed up ${playlists.length} playlist${playlists.length !== 1 ? 's' : ''}`);
+        showToast('Playlists backed up to Google Drive');
     } catch (err) {
-        setSyncStatus('Export failed: ' + err.message, true);
+        setSyncStatus('Backup failed: ' + err.message, true);
     } finally {
-        exportBtn.disabled = false;
+        syncExportBtn.disabled = false;
     }
 }
 
-async function importPlaylists() {
+async function syncImportPlaylists() {
     if (!syncStorage || !syncAppFolderId) {
         setSyncStatus('Not connected', true);
         return;
     }
 
     try {
-        setSyncStatus('Importing...');
-        importBtn.disabled = true;
+        setSyncStatus('Restoring...');
+        syncImportBtn.disabled = true;
 
         const file = await syncStorage.findFile(SAFE_PLACE_FILE_NAME, syncAppFolderId);
         if (!file) {
@@ -916,7 +1353,7 @@ async function importPlaylists() {
             return;
         }
 
-        // Merge: add imported playlists that don't exist locally (by id)
+        // Merge: add new playlists, update existing ones by id
         const existingIds = new Set(playlists.map(p => p.id));
         let added = 0;
         let updated = 0;
@@ -924,7 +1361,6 @@ async function importPlaylists() {
         for (const pl of imported) {
             if (!pl.id || !pl.name) continue;
             if (existingIds.has(pl.id)) {
-                // Update existing playlist tracks
                 const local = playlists.find(p => p.id === pl.id);
                 if (local) {
                     local.tracks = pl.tracks || [];
@@ -945,12 +1381,12 @@ async function importPlaylists() {
         if (updated > 0) msg.push(`${updated} updated`);
         const summary = msg.length > 0 ? msg.join(', ') : 'No changes';
 
-        setSyncStatus(`Imported: ${summary}`);
-        showToast(`Import complete: ${summary}`);
+        setSyncStatus(`Restored: ${summary}`);
+        showToast(`Restore complete: ${summary}`);
     } catch (err) {
-        setSyncStatus('Import failed: ' + err.message, true);
+        setSyncStatus('Restore failed: ' + err.message, true);
     } finally {
-        importBtn.disabled = false;
+        syncImportBtn.disabled = false;
     }
 }
 
@@ -958,7 +1394,6 @@ function setSyncStatus(msg, isError) {
     syncStatus.textContent = msg;
     syncStatus.className = 'sync-status' + (isError ? ' sync-error' : '');
     if (msg && !isError) {
-        // Auto-clear success messages after 4s
         setTimeout(() => {
             if (syncStatus.textContent === msg) syncStatus.textContent = '';
         }, 4000);
@@ -968,8 +1403,8 @@ function setSyncStatus(msg, isError) {
 function setupSyncListeners() {
     syncSignInBtn.addEventListener('click', handleSyncSignIn);
     syncSignOutBtn.addEventListener('click', handleSyncSignOut);
-    exportBtn.addEventListener('click', exportPlaylists);
-    importBtn.addEventListener('click', importPlaylists);
+    syncExportBtn.addEventListener('click', syncExportPlaylists);
+    syncImportBtn.addEventListener('click', syncImportPlaylists);
     initSyncAuth();
 }
 

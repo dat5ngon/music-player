@@ -88,25 +88,87 @@ body {
     text-transform: uppercase;
 }
 
-/* Search Section */
-.search-section {
-    margin-bottom: 20px;
+/* Upload Button */
+.btn-upload {
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    transition: all 0.2s;
+}
+
+.btn-upload:hover {
+    background: var(--accent);
+    color: #0a0a0a;
+}
+
+/* Import Dropdown */
+.dropdown-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    z-index: 50;
+    min-width: 180px;
+    overflow: hidden;
+}
+
+.dropdown-item {
+    display: block;
+    width: 100%;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+}
+
+.dropdown-item:hover {
+    background: var(--bg-hover);
+    color: var(--accent);
+}
+
+.dropdown-item + .dropdown-item {
+    border-top: 1px solid var(--border);
+}
+
+/* Search Inline (inside panel) */
+.search-inline {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
 }
 
 .search-bar {
     display: flex;
-    gap: 10px;
-    margin-bottom: 14px;
+    gap: 8px;
 }
 
 .search-bar input {
     flex: 1;
-    padding: 14px 20px;
-    background: var(--bg-secondary);
+    padding: 10px 14px;
+    background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     color: var(--text-primary);
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     font-family: var(--font-body);
     outline: none;
     transition: border-color 0.3s, box-shadow 0.3s;
@@ -247,7 +309,7 @@ body {
 /* Main Content */
 .main-content {
     display: grid;
-    grid-template-columns: 3fr 1fr;
+    grid-template-columns: 3fr 2fr;
     gap: 20px;
     align-items: start;
 }
@@ -259,22 +321,22 @@ body {
     border-radius: var(--radius-lg);
     padding: 16px;
     min-height: 400px;
-    max-height: 70vh;
+    max-height: 80vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
     min-width: 0;
 }
 
-.results-panel {
-    max-height: 75vh;
+.playlists-panel {
+    max-height: 80vh;
+    min-height: 500px;
 }
 
-.playlists-panel {
+.results-panel {
     position: sticky;
     top: 20px;
     max-height: 80vh;
-    min-height: 200px;
 }
 
 .panel-title {
@@ -480,12 +542,61 @@ body {
     display: none !important;
 }
 
+/* View Toggle */
+.panel-title-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.panel-title-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.view-toggle {
+    display: flex;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+.view-btn {
+    width: 30px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.view-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+}
+
+.view-btn.active {
+    background: var(--accent);
+    color: #0a0a0a;
+}
+
+.view-btn + .view-btn {
+    border-left: 1px solid var(--border);
+}
+
 /* Playlist List */
 .playlist-list {
     flex: 1;
     overflow-y: auto;
 }
 
+/* List View (default) */
 .playlist-item {
     display: flex;
     align-items: center;
@@ -523,6 +634,85 @@ body {
     color: var(--text-muted);
 }
 
+/* Grid View */
+.playlist-list.grid-view {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 14px;
+    padding: 4px;
+    align-items: start;
+}
+
+.playlist-list.grid-view .playlist-item {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+    border-bottom: none;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    transition: all 0.2s;
+}
+
+.playlist-list.grid-view .playlist-item:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.playlist-list.grid-view .playlist-item-info {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+}
+
+.playlist-list.grid-view .playlist-cover-wrap {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    background: var(--bg-primary);
+    overflow: hidden;
+    position: relative;
+}
+
+.playlist-list.grid-view .playlist-cover {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.playlist-list.grid-view .playlist-icon {
+    display: none;
+}
+
+.playlist-list.grid-view .playlist-item-text {
+    padding: 10px 12px;
+}
+
+.playlist-list.grid-view .playlist-name {
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.playlist-list.grid-view .playlist-count {
+    font-size: 0.72rem;
+    margin-top: 3px;
+}
+
+/* List view: hide cover wrapper */
+.playlist-cover-wrap {
+    display: none;
+}
+
+.playlist-cover {
+    display: none;
+}
+
 /* Playlist Tracks View */
 .playlist-tracks {
     flex: 1;
@@ -545,6 +735,30 @@ body {
     font-size: 1rem;
     letter-spacing: 1px;
     text-transform: uppercase;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: var(--radius);
+    transition: background 0.2s;
+}
+
+.playlist-header h3:hover {
+    background: var(--bg-hover);
+}
+
+.playlist-name-edit {
+    font-family: var(--font-display) !important;
+    font-size: 1rem !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+    background: var(--bg-card) !important;
+    border: 1px solid var(--accent) !important;
+    border-radius: var(--radius) !important;
+    color: var(--text-primary) !important;
+    padding: 4px 8px !important;
+    width: 100%;
+    outline: none !important;
+    margin: 0 !important;
+    box-shadow: 0 0 0 2px var(--accent-glow) !important;
 }
 
 .playlist-actions {
@@ -799,6 +1013,114 @@ body {
     gap: 8px;
 }
 
+/* Confirm Dialog */
+.modal-confirm {
+    max-width: 360px;
+}
+
+.confirm-message {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.modal-description {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    margin-bottom: 12px;
+}
+
+/* Export Checklist */
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    padding: 5px 0;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--text-muted);
+    border-radius: 3px;
+    background: transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin: 0;
+    position: relative;
+    vertical-align: middle;
+}
+
+.checkbox-label input[type="checkbox"]:checked {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.checkbox-label input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #0a0a0a;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.checkbox-label input[type="checkbox"]:indeterminate {
+    background: var(--accent);
+    border-color: var(--accent);
+}
+
+.checkbox-label input[type="checkbox"]:indeterminate::after {
+    content: '–';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #0a0a0a;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.export-checklist {
+    margin-bottom: 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.export-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+}
+
+.export-title-row h3 {
+    margin-bottom: 0;
+}
+
+.export-select-all-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    padding: 0;
+}
+
+.export-item {
+    padding: 5px 0;
+}
+
 /* Playlist Select List (in modal) */
 .playlist-select-list {
     max-height: 250px;
@@ -822,6 +1144,18 @@ body {
 
 .playlist-select-item .playlist-icon {
     font-size: 1.2rem;
+}
+
+.playlist-select-create {
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+    padding-bottom: 12px;
+    color: var(--accent);
+    font-weight: 500;
+}
+
+.playlist-select-create:hover {
+    background: var(--accent-glow);
 }
 
 /* Toast Notification */
@@ -873,13 +1207,7 @@ body {
 }
 
 /* Responsive */
-@media (max-width: 900px) {
-    .main-content {
-        grid-template-columns: 2fr 1fr;
-    }
-}
-
-@media (max-width: 640px) {
+@media (max-width: 768px) {
     .app {
         padding: 12px;
         padding-bottom: 140px;
@@ -890,8 +1218,11 @@ body {
     }
 
     .playlists-panel {
+        min-height: 400px;
+    }
+
+    .results-panel {
         position: static;
-        max-height: 350px;
     }
 
     .header h1 {
@@ -965,7 +1296,7 @@ body {
     opacity: 0.5;
 }
 
-/* Sync Bar (Google Drive import/export) */
+/* Sync Bar (Google Drive backup/restore) */
 .sync-bar {
     display: flex;
     align-items: center;
@@ -1023,4 +1354,38 @@ body {
 
 .sync-status.sync-error {
     color: var(--danger);
+}
+
+/* Archive Import */
+.inline-link {
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px dotted var(--accent);
+    transition: opacity 0.2s;
+}
+
+.inline-link:hover {
+    opacity: 0.8;
+}
+
+.import-status {
+    margin-bottom: 16px;
+    text-align: center;
+    padding: 12px;
+    border-radius: var(--radius);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+}
+
+.import-status p {
+    font-size: 0.85rem;
+    margin: 0;
+}
+
+.import-error {
+    color: var(--danger);
+}
+
+.import-success {
+    color: var(--success);
 }

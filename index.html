@@ -17,64 +17,38 @@
                 <span class="logo-icon">⎋</span>
                 <h1>Free Music Player</h1>
             </div>
-            <p class="subtitle">Full-length free music from Internet Archive (Creative Commons)</p>
+            <p class="subtitle">Full-length free music from Internet Archive</p>
         </header>
-
-        <!-- Search Section -->
-        <section class="search-section">
-            <div class="search-bar">
-                <input type="text" id="searchInput" placeholder="Search for songs, artists, genres..." autocomplete="off">
-                <button id="searchBtn" class="btn btn-primary">Search</button>
-            </div>
-            <div class="search-tags">
-                <span class="tag" data-tag="rock">Rock</span>
-                <span class="tag" data-tag="jazz">Jazz</span>
-                <span class="tag" data-tag="electronic">Electronic</span>
-                <span class="tag" data-tag="classical">Classical</span>
-                <span class="tag" data-tag="pop">Pop</span>
-                <span class="tag" data-tag="hip hop">Hip Hop</span>
-                <span class="tag" data-tag="ambient">Ambient</span>
-                <span class="tag" data-tag="acoustic">Acoustic</span>
-            </div>
-            <div class="sort-bar">
-                <span class="sort-label">Sort:</span>
-                <button class="sort-btn active" data-sort="downloads+desc">Popular</button>
-                <button class="sort-btn" data-sort="date+desc">Newest</button>
-                <button class="sort-btn" data-sort="titleSorter+asc">A-Z</button>
-            </div>
-        </section>
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Search Results -->
-            <section class="panel results-panel">
-                <h2 class="panel-title">
-                    <span>Search Results</span>
-                    <span id="resultCount" class="count"></span>
-                </h2>
-                <div id="searchResults" class="track-list">
-                    <div class="empty-state">
-                        <span class="empty-icon">♪</span>
-                        <p>Search for music or click a genre tag to get started</p>
-                    </div>
-                </div>
-                <div id="loadingIndicator" class="loading hidden">
-                    <div class="spinner"></div>
-                    <p>Searching...</p>
-                </div>
-            </section>
-
-            <!-- Playlists -->
+            <!-- Playlists (Primary) -->
             <section class="panel playlists-panel">
                 <h2 class="panel-title">
-                    <span>Playlists</span>
-                    <button id="newPlaylistBtn" class="btn btn-small">+ New</button>
+                    <div class="panel-title-left">
+                        <span>My Playlists</span>
+                        <div class="view-toggle">
+                            <button id="listViewBtn" class="view-btn active" title="List view">☰</button>
+                            <button id="gridViewBtn" class="view-btn" title="Grid view">⊞</button>
+                        </div>
+                    </div>
+                    <div class="panel-title-actions">
+                        <div class="dropdown-wrap">
+                            <button id="importBtn" class="btn btn-small" title="Import">↓ Import ▾</button>
+                            <div id="importDropdown" class="dropdown-menu hidden">
+                                <button class="dropdown-item" id="importFileBtn">From File</button>
+                                <button class="dropdown-item" id="importFromArchiveBtn">From Internet Archive</button>
+                            </div>
+                        </div>
+                        <button id="exportBtn" class="btn btn-small" title="Export playlist">↑ Export</button>
+                        <button id="newPlaylistBtn" class="btn btn-small">+ New</button>
+                    </div>
                 </h2>
                 <div class="sync-bar">
                     <button id="syncSignInBtn" class="btn btn-small btn-sync" title="Sign in to Google Drive">☁ Sign In</button>
-                    <button id="exportBtn" class="btn btn-small btn-sync hidden" title="Export playlists to Google Drive">↑ Export</button>
-                    <button id="importBtn" class="btn btn-small btn-sync hidden" title="Import playlists from Google Drive">↓ Import</button>
-                    <button id="syncSignOutBtn" class="btn btn-small btn-sync-danger hidden" title="Sign out">✕</button>
+                    <button id="syncExportBtn" class="btn btn-small btn-sync hidden" title="Export playlists to Google Drive">☁↑ Backup</button>
+                    <button id="syncImportBtn" class="btn btn-small btn-sync hidden" title="Import playlists from Google Drive">☁↓ Restore</button>
+                    <button id="syncSignOutBtn" class="btn btn-small btn-sync-danger hidden" title="Sign out from Google Drive">✕</button>
                     <span id="syncStatus" class="sync-status"></span>
                 </div>
                 <div id="playlistList" class="playlist-list"></div>
@@ -83,13 +57,40 @@
                 <div id="playlistTracks" class="playlist-tracks hidden">
                     <div class="playlist-header">
                         <button id="backToPlaylists" class="btn btn-small">‹ Back</button>
-                        <h3 id="currentPlaylistName"></h3>
+                        <h3 id="currentPlaylistName" title="Click to rename"></h3>
                         <div class="playlist-actions">
                             <button id="playAllBtn" class="btn btn-small btn-primary">► Play All</button>
                             <button id="deletePlaylistBtn" class="btn btn-small btn-danger">Delete</button>
                         </div>
                     </div>
                     <div id="playlistTrackList" class="track-list"></div>
+                </div>
+            </section>
+
+            <!-- Search (Secondary) -->
+            <section class="panel results-panel">
+                <h2 class="panel-title">
+                    <div class="panel-title-left">
+                        <span>Find Music</span>
+                        <span id="resultCount" class="count"></span>
+                    </div>
+                    <a href="https://archive.org/upload" target="_blank" rel="noopener noreferrer" class="btn btn-small btn-upload" title="Upload your music to Internet Archive, then import it here">↗ Upload</a>
+                </h2>
+                <div class="search-inline">
+                    <div class="search-bar">
+                        <input type="text" id="searchInput" placeholder="Search songs, artists..." autocomplete="off">
+                        <button id="searchBtn" class="btn btn-primary btn-small">Search</button>
+                    </div>
+                </div>
+                <div id="searchResults" class="track-list">
+                    <div class="empty-state">
+                        <span class="empty-icon">♪</span>
+                        <p>Search for music to add to your playlists</p>
+                    </div>
+                </div>
+                <div id="loadingIndicator" class="loading hidden">
+                    <div class="spinner"></div>
+                    <p>Searching...</p>
                 </div>
             </section>
         </main>
@@ -139,6 +140,56 @@
                 <div id="playlistSelectList" class="playlist-select-list"></div>
                 <div class="modal-actions">
                     <button id="cancelAddBtn" class="btn">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Export Playlists Modal -->
+        <div id="exportModal" class="modal hidden">
+            <div class="modal-content">
+                <div class="export-title-row">
+                    <h3>Export Playlists</h3>
+                    <label class="checkbox-label export-select-all-label">
+                        <input type="checkbox" id="exportSelectAll" checked>
+                        <span>Select All</span>
+                    </label>
+                </div>
+                <div id="exportSelectList" class="export-checklist"></div>
+                <div class="modal-actions">
+                    <button id="cancelExportBtn" class="btn">Cancel</button>
+                    <button id="doExportBtn" class="btn btn-primary">Export</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Import from Archive Modal -->
+        <div id="archiveImportModal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Import from Internet Archive</h3>
+                <p class="modal-description">
+                    Enter an item URL, identifier, or user profile to import tracks.
+                    <a href="https://archive.org/upload" target="_blank" rel="noopener noreferrer" class="inline-link">Upload your music first</a> if you haven't already.
+                </p>
+                <input type="text" id="archiveIdInput" placeholder="e.g. @username, my-album, or archive.org/details/..." maxlength="200">
+                <div id="archiveImportStatus" class="import-status hidden"></div>
+                <div class="modal-actions">
+                    <button id="cancelArchiveImportBtn" class="btn">Cancel</button>
+                    <button id="doArchiveImportBtn" class="btn btn-primary">Import</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden file input for import -->
+        <input type="file" id="importFileInput" accept=".json" style="display:none">
+
+        <!-- Confirm Dialog -->
+        <div id="confirmModal" class="modal hidden">
+            <div class="modal-content modal-confirm">
+                <h3 id="confirmTitle">Confirm</h3>
+                <p id="confirmMessage" class="confirm-message"></p>
+                <div class="modal-actions">
+                    <button id="confirmCancelBtn" class="btn">Cancel</button>
+                    <button id="confirmOkBtn" class="btn btn-danger">Delete</button>
                 </div>
             </div>
         </div>
