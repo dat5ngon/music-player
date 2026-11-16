@@ -750,6 +750,7 @@ function addTrackToPlaylist(pid, track) {
     pl.tracks.push({ ...track });
     savePlaylists();
     showToast(`Added to "${pl.name}"`);
+    renderPlaylists();
     if (currentPlaylistId === pid) renderPlaylistTracks(pl);
 }
 
