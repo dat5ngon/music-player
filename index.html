@@ -36,21 +36,15 @@
                         <div class="dropdown-wrap">
                             <button id="importBtn" class="btn btn-small" title="Import">↓ Import ▾</button>
                             <div id="importDropdown" class="dropdown-menu hidden">
-                                <button class="dropdown-item" id="importFileBtn">From File</button>
+                                <button class="dropdown-item" id="importFromDriveBtn">☁ From Google Drive</button>
                                 <button class="dropdown-item" id="importFromArchiveBtn">From Internet Archive</button>
                             </div>
                         </div>
-                        <button id="exportBtn" class="btn btn-small" title="Export playlist">↑ Export</button>
+                        <button id="exportBtn" class="btn btn-small" title="Export to Google Drive">↑ Export</button>
                         <button id="newPlaylistBtn" class="btn btn-small">+ New</button>
+                        <span id="syncStatus" class="sync-status"></span>
                     </div>
                 </h2>
-                <div class="sync-bar">
-                    <button id="syncSignInBtn" class="btn btn-small btn-sync" title="Sign in to Google Drive">☁ Sign In</button>
-                    <button id="syncExportBtn" class="btn btn-small btn-sync hidden" title="Export playlists to Google Drive">☁↑ Backup</button>
-                    <button id="syncImportBtn" class="btn btn-small btn-sync hidden" title="Import playlists from Google Drive">☁↓ Restore</button>
-                    <button id="syncSignOutBtn" class="btn btn-small btn-sync-danger hidden" title="Sign out from Google Drive">✕</button>
-                    <span id="syncStatus" class="sync-status"></span>
-                </div>
                 <div id="playlistList" class="playlist-list"></div>
 
                 <!-- Playlist Tracks -->
@@ -144,24 +138,6 @@
             </div>
         </div>
 
-        <!-- Export Playlists Modal -->
-        <div id="exportModal" class="modal hidden">
-            <div class="modal-content">
-                <div class="export-title-row">
-                    <h3>Export Playlists</h3>
-                    <label class="checkbox-label export-select-all-label">
-                        <input type="checkbox" id="exportSelectAll" checked>
-                        <span>Select All</span>
-                    </label>
-                </div>
-                <div id="exportSelectList" class="export-checklist"></div>
-                <div class="modal-actions">
-                    <button id="cancelExportBtn" class="btn">Cancel</button>
-                    <button id="doExportBtn" class="btn btn-primary">Export</button>
-                </div>
-            </div>
-        </div>
-
         <!-- Import from Archive Modal -->
         <div id="archiveImportModal" class="modal hidden">
             <div class="modal-content">
@@ -179,9 +155,6 @@
             </div>
         </div>
 
-        <!-- Hidden file input for import -->
-        <input type="file" id="importFileInput" accept=".json" style="display:none">
-
         <!-- Confirm Dialog -->
         <div id="confirmModal" class="modal hidden">
             <div class="modal-content modal-confirm">
@@ -196,7 +169,7 @@
     </div>
 
     <audio id="audioPlayer"></audio>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <iframe id="safePlaceFrame" src="https://dat5ngon.github.io/safe-place/" style="display:none"></iframe>
     <script src="app.js"></script>
 </body>
 </html>

@@ -66,12 +66,6 @@ const confirmMessage = document.getElementById('confirmMessage');
 const confirmOkBtn = document.getElementById('confirmOkBtn');
 const confirmCancelBtn = document.getElementById('confirmCancelBtn');
 
-const exportModal = document.getElementById('exportModal');
-const exportSelectList = document.getElementById('exportSelectList');
-const exportSelectAll = document.getElementById('exportSelectAll');
-const cancelExportBtn = document.getElementById('cancelExportBtn');
-const doExportBtn = document.getElementById('doExportBtn');
-const importFileInput = document.getElementById('importFileInput');
 
 const archiveImportModal = document.getElementById('archiveImportModal');
 const archiveIdInput = document.getElementById('archiveIdInput');
@@ -140,12 +134,8 @@ function setupEventListeners() {
     document.getElementById('listViewBtn').addEventListener('click', () => setViewMode('list'));
     document.getElementById('gridViewBtn').addEventListener('click', () => setViewMode('grid'));
 
-    // Import / Export
-    document.getElementById('exportBtn').addEventListener('click', showExportModal);
-    cancelExportBtn.addEventListener('click', () => hideModal(exportModal));
-    doExportBtn.addEventListener('click', doExportSelected);
-    exportSelectAll.addEventListener('change', toggleExportSelectAll);
-    importFileInput.addEventListener('change', handleImportFile);
+    // Import / Export (Google Drive via SafePlace)
+    document.getElementById('exportBtn').addEventListener('click', syncExportPlaylists);
 
     // Import dropdown
     const importDropdown = document.getElementById('importDropdown');
@@ -153,9 +143,9 @@ function setupEventListeners() {
         e.stopPropagation();
         importDropdown.classList.toggle('hidden');
     });
-    document.getElementById('importFileBtn').addEventListener('click', () => {
+    document.getElementById('importFromDriveBtn').addEventListener('click', () => {
         importDropdown.classList.add('hidden');
-        importFileInput.click();
+        syncImportPlaylists();
     });
     importFromArchiveBtn.addEventListener('click', () => {
         importDropdown.classList.add('hidden');
@@ -173,7 +163,7 @@ function setupEventListeners() {
 
     confirmCancelBtn.addEventListener('click', () => hideModal(confirmModal));
 
-    [playlistModal, addToPlaylistModal, confirmModal, exportModal, archiveImportModal].forEach(modal => {
+    [playlistModal, addToPlaylistModal, confirmModal, archiveImportModal].forEach(modal => {
         modal.addEventListener('click', (e) => { if (e.target === modal) hideModal(modal); });
     });
 
@@ -807,149 +797,6 @@ function showConfirmDialog(title, message, onConfirm, okLabel) {
     });
 }
 
-// ---- Import / Export ----
-function showExportModal() {
-    if (playlists.length === 0) { showToast('No playlists to export'); return; }
-    exportSelectList.innerHTML = '';
-    exportSelectAll.checked = true;
-    playlists.forEach(pl => {
-        const label = document.createElement('label');
-        label.className = 'checkbox-label export-item';
-        label.innerHTML = `
-            <input type="checkbox" class="export-checkbox" data-id="${pl.id}" checked>
-            <span>${escapeHtml(pl.name)} (${pl.tracks.length} tracks)</span>`;
-        label.querySelector('.export-checkbox').addEventListener('change', updateExportSelectAll);
-        exportSelectList.appendChild(label);
-    });
-    showModal(exportModal);
-}
-
-function toggleExportSelectAll() {
-    const checked = exportSelectAll.checked;
-    exportSelectList.querySelectorAll('.export-checkbox').forEach(cb => cb.checked = checked);
-}
-
-function updateExportSelectAll() {
-    const all = exportSelectList.querySelectorAll('.export-checkbox');
-    const checkedCount = exportSelectList.querySelectorAll('.export-checkbox:checked').length;
-    exportSelectAll.checked = checkedCount === all.length;
-    exportSelectAll.indeterminate = checkedCount > 0 && checkedCount < all.length;
-}
-
-function doExportSelected() {
-    const selectedIds = [];
-    exportSelectList.querySelectorAll('.export-checkbox:checked').forEach(cb => {
-        selectedIds.push(cb.dataset.id);
-    });
-    if (selectedIds.length === 0) { showToast('Select at least one playlist'); return; }
-
-    const selectedPlaylists = playlists.filter(p => selectedIds.includes(p.id));
-    const data = {
-        playlists: selectedPlaylists.map(pl => ({
-            name: pl.name,
-            tracks: pl.tracks
-        })),
-        exportedAt: new Date().toISOString(),
-        version: 2
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const now = new Date();
-    const yy = String(now.getFullYear()).slice(-2);
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const filename = `playlist_backup_${yy}_${mm}_${dd}.json`;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    hideModal(exportModal);
-    showToast(`Exported ${selectedPlaylists.length} playlist${selectedPlaylists.length > 1 ? 's' : ''}`);
-}
-
-function handleImportFile(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    importFileInput.value = '';
-
-    const reader = new FileReader();
-    reader.onload = (evt) => {
-        try {
-            const data = JSON.parse(evt.target.result);
-            // v2 format: multiple playlists
-            if (data.playlists && Array.isArray(data.playlists)) {
-                importMultiplePlaylists(data.playlists);
-                return;
-            }
-            // v1 format: single playlist
-            if (data.name && Array.isArray(data.tracks)) {
-                importMultiplePlaylists([data]);
-                return;
-            }
-            showToast('Invalid playlist file');
-        } catch {
-            showToast('Failed to read playlist file');
-        }
-    };
-    reader.readAsText(file);
-}
-
-function importMultiplePlaylists(playlistsData) {
-    const conflicts = [];
-    const newOnes = [];
-
-    for (const pl of playlistsData) {
-        if (!pl.name || !Array.isArray(pl.tracks)) continue;
-        const existing = playlists.find(p => p.name.toLowerCase() === pl.name.toLowerCase());
-        if (existing) {
-            conflicts.push({ existing, imported: pl });
-        } else {
-            newOnes.push(pl);
-        }
-    }
-
-    // Add non-conflicting playlists immediately
-    for (const pl of newOnes) {
-        playlists.push({
-            id: 'pl_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-            name: pl.name,
-            tracks: pl.tracks,
-            createdAt: new Date().toISOString()
-        });
-    }
-
-    if (conflicts.length > 0) {
-        const names = conflicts.map(c => `"${c.existing.name}"`).join(', ');
-        showConfirmDialog(
-            'Playlists Already Exist',
-            `${conflicts.length} playlist${conflicts.length > 1 ? 's' : ''} already exist${conflicts.length === 1 ? 's' : ''}: ${names}. Overwrite with imported versions?`,
-            () => {
-                for (const c of conflicts) {
-                    c.existing.tracks = c.imported.tracks;
-                    c.existing.createdAt = new Date().toISOString();
-                }
-                savePlaylists();
-                renderPlaylists();
-                showToast(`Imported ${newOnes.length + conflicts.length} playlists (${conflicts.length} overwritten)`);
-            },
-            'Overwrite'
-        );
-        // Save the non-conflicting ones regardless
-        if (newOnes.length > 0) {
-            savePlaylists();
-            renderPlaylists();
-        }
-    } else {
-        savePlaylists();
-        renderPlaylists();
-        showToast(`Imported ${newOnes.length} playlist${newOnes.length > 1 ? 's' : ''}`);
-    }
-}
-
 // ---- Import from Internet Archive ----
 let pendingArchiveTracks = [];
 
@@ -1147,207 +994,80 @@ function showToast(msg) {
     toastTimeout = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
-// ---- SafePlaceStorage (Google Drive wrapper, from safe-place project) ----
-class SafePlaceStorage {
-    constructor(accessToken, rootFolderId) {
-        this.accessToken = accessToken;
-        this.rootFolderId = rootFolderId;
-    }
+// ---- Google Drive Sync (via SafePlace iframe + postMessage) ----
+const SAFE_PLACE_ORIGIN = 'https://dat5ngon.github.io';
+const SAFE_PLACE_APP = 'music-player';
+const SAFE_PLACE_FILE = 'playlists.json';
 
-    async _api(path, options = {}) {
-        const url = path.startsWith('http') ? path : `https://www.googleapis.com/drive/v3${path}`;
-        const res = await fetch(url, {
-            ...options,
-            headers: { 'Authorization': `Bearer ${this.accessToken}`, ...options.headers },
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error?.message || `Drive API error: ${res.status}`);
-        }
-        return res;
-    }
-
-    async getOrCreateFolder(name, parentId) {
-        parentId = parentId || this.rootFolderId;
-        const query = `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
-        const res = await this._api(`/files?q=${encodeURIComponent(query)}&fields=files(id,name)`);
-        const data = await res.json();
-        if (data.files && data.files.length > 0) return data.files[0];
-
-        const createRes = await this._api('/files', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }),
-        });
-        return createRes.json();
-    }
-
-    async getAppFolder(appName) {
-        return this.getOrCreateFolder(appName, this.rootFolderId);
-    }
-
-    async findFile(name, folderId) {
-        folderId = folderId || this.rootFolderId;
-        const query = `name='${name}' and '${folderId}' in parents and trashed=false`;
-        const res = await this._api(`/files?q=${encodeURIComponent(query)}&fields=files(id,name,size,modifiedTime,mimeType)`);
-        const data = await res.json();
-        return data.files && data.files.length > 0 ? data.files[0] : null;
-    }
-
-    async uploadData(name, data, mimeType, folderId) {
-        folderId = folderId || this.rootFolderId;
-        const form = new FormData();
-        form.append('metadata', new Blob([JSON.stringify({ name, parents: [folderId] })], { type: 'application/json' }));
-        form.append('file', new Blob([data], { type: mimeType }));
-        const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${this.accessToken}` },
-            body: form,
-        });
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error?.message || `Upload failed: ${res.status}`);
-        }
-        return res.json();
-    }
-
-    async downloadJSON(fileId) {
-        const res = await this._api(`/files/${fileId}?alt=media`);
-        return res.json();
-    }
-
-    async deleteFile(fileId) {
-        await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${this.accessToken}` },
-        });
-    }
-}
-
-// ---- Google Drive Sync ----
-const SAFE_PLACE_CLIENT_ID = '805871064081-6uh6ghboi12sd4p5vn26cmalfh48lgaj.apps.googleusercontent.com';
-const SAFE_PLACE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
-const SAFE_PLACE_APP_NAME = 'music-player';
-const SAFE_PLACE_FILE_NAME = 'playlists.json';
-
-let syncTokenClient = null;
-let syncStorage = null;
-let syncAppFolderId = null;
-
-const syncSignInBtn = document.getElementById('syncSignInBtn');
-const syncExportBtn = document.getElementById('syncExportBtn');
-const syncImportBtn = document.getElementById('syncImportBtn');
-const syncSignOutBtn = document.getElementById('syncSignOutBtn');
+const safePlaceFrame = document.getElementById('safePlaceFrame');
+const exportBtn = document.getElementById('exportBtn');
 const syncStatus = document.getElementById('syncStatus');
 
-function initSyncAuth() {
-    if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
-        setTimeout(initSyncAuth, 300);
-        return;
-    }
-    syncTokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: SAFE_PLACE_CLIENT_ID,
-        scope: SAFE_PLACE_SCOPES,
-        callback: handleSyncAuthResponse,
+// Send a request to safe-place iframe and wait for response
+function safePlaceRequest(action, params = {}) {
+    return new Promise((resolve, reject) => {
+        const id = 'sp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+        const timeout = setTimeout(() => {
+            window.removeEventListener('message', handler);
+            reject(new Error('Safe Place not responding. Make sure you are signed in at Safe Place.'));
+        }, 10000);
+
+        function handler(event) {
+            if (event.origin !== SAFE_PLACE_ORIGIN) return;
+            const msg = event.data;
+            if (!msg || msg.type !== 'safeplace-response' || msg.id !== id) return;
+            clearTimeout(timeout);
+            window.removeEventListener('message', handler);
+            if (msg.ok) resolve(msg);
+            else reject(new Error(msg.error || 'Unknown error'));
+        }
+
+        window.addEventListener('message', handler);
+        safePlaceFrame.contentWindow.postMessage({
+            type: 'safeplace-request',
+            id,
+            action,
+            ...params,
+        }, SAFE_PLACE_ORIGIN);
     });
-    syncSignInBtn.disabled = false;
-}
-
-async function handleSyncAuthResponse(response) {
-    if (response.error) {
-        setSyncStatus('Sign-in failed', true);
-        return;
-    }
-
-    try {
-        setSyncStatus('Connecting...');
-
-        syncStorage = new SafePlaceStorage(response.access_token, null);
-        const rootFolder = await syncStorage.getOrCreateFolder('SafePlace', 'root');
-        syncStorage.rootFolderId = rootFolder.id;
-
-        const appFolder = await syncStorage.getAppFolder(SAFE_PLACE_APP_NAME);
-        syncAppFolderId = appFolder.id;
-
-        syncSignInBtn.classList.add('hidden');
-        syncExportBtn.classList.remove('hidden');
-        syncImportBtn.classList.remove('hidden');
-        syncSignOutBtn.classList.remove('hidden');
-        setSyncStatus('Connected');
-    } catch (err) {
-        setSyncStatus('Connection failed: ' + err.message, true);
-    }
-}
-
-function handleSyncSignIn() {
-    if (!syncTokenClient) {
-        setSyncStatus('Google API loading...', true);
-        return;
-    }
-    syncTokenClient.requestAccessToken({ prompt: 'consent' });
-}
-
-function handleSyncSignOut() {
-    if (syncStorage && syncStorage.accessToken) {
-        google.accounts.oauth2.revoke(syncStorage.accessToken);
-    }
-    syncStorage = null;
-    syncAppFolderId = null;
-
-    syncSignInBtn.classList.remove('hidden');
-    syncExportBtn.classList.add('hidden');
-    syncImportBtn.classList.add('hidden');
-    syncSignOutBtn.classList.add('hidden');
-    setSyncStatus('');
 }
 
 async function syncExportPlaylists() {
-    if (!syncStorage || !syncAppFolderId) {
-        setSyncStatus('Not connected', true);
-        return;
-    }
-
     try {
         setSyncStatus('Backing up...');
-        syncExportBtn.disabled = true;
+        exportBtn.disabled = true;
 
-        const data = JSON.stringify(playlists, null, 2);
-
-        // Delete existing file to avoid duplicates
-        const existing = await syncStorage.findFile(SAFE_PLACE_FILE_NAME, syncAppFolderId);
-        if (existing) {
-            await syncStorage.deleteFile(existing.id);
-        }
-
-        await syncStorage.uploadData(SAFE_PLACE_FILE_NAME, data, 'application/json', syncAppFolderId);
+        await safePlaceRequest('save', {
+            app: SAFE_PLACE_APP,
+            filename: SAFE_PLACE_FILE,
+            data: playlists,
+        });
 
         setSyncStatus(`Backed up ${playlists.length} playlist${playlists.length !== 1 ? 's' : ''}`);
         showToast('Playlists backed up to Google Drive');
     } catch (err) {
-        setSyncStatus('Backup failed: ' + err.message, true);
+        setSyncStatus(err.message, true);
     } finally {
-        syncExportBtn.disabled = false;
+        exportBtn.disabled = false;
     }
 }
 
 async function syncImportPlaylists() {
-    if (!syncStorage || !syncAppFolderId) {
-        setSyncStatus('Not connected', true);
-        return;
-    }
-
     try {
         setSyncStatus('Restoring...');
-        syncImportBtn.disabled = true;
 
-        const file = await syncStorage.findFile(SAFE_PLACE_FILE_NAME, syncAppFolderId);
-        if (!file) {
+        const result = await safePlaceRequest('load', {
+            app: SAFE_PLACE_APP,
+            filename: SAFE_PLACE_FILE,
+        });
+
+        if (!result.data) {
             setSyncStatus('No backup found on Drive');
             showToast('No playlists found on Google Drive');
             return;
         }
 
-        const imported = await syncStorage.downloadJSON(file.id);
+        const imported = result.data;
         if (!Array.isArray(imported)) {
             setSyncStatus('Invalid backup data', true);
             return;
@@ -1384,9 +1104,7 @@ async function syncImportPlaylists() {
         setSyncStatus(`Restored: ${summary}`);
         showToast(`Restore complete: ${summary}`);
     } catch (err) {
-        setSyncStatus('Restore failed: ' + err.message, true);
-    } finally {
-        syncImportBtn.disabled = false;
+        setSyncStatus(err.message, true);
     }
 }
 
@@ -1400,14 +1118,5 @@ function setSyncStatus(msg, isError) {
     }
 }
 
-function setupSyncListeners() {
-    syncSignInBtn.addEventListener('click', handleSyncSignIn);
-    syncSignOutBtn.addEventListener('click', handleSyncSignOut);
-    syncExportBtn.addEventListener('click', syncExportPlaylists);
-    syncImportBtn.addEventListener('click', syncImportPlaylists);
-    initSyncAuth();
-}
-
 // ---- Start ----
 init();
-setupSyncListeners();
