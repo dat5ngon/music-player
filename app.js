@@ -1003,14 +1003,65 @@ const safePlaceFrame = document.getElementById('safePlaceFrame');
 const exportBtn = document.getElementById('exportBtn');
 const syncStatus = document.getElementById('syncStatus');
 
+// Track whether the SafePlace iframe is ready to receive messages
+let safePlaceReady = false;
+let safePlaceIframeLoaded = false;
+
+// Listen for a ready signal from SafePlace iframe
+window.addEventListener('message', (event) => {
+    if (event.origin !== SAFE_PLACE_ORIGIN) return;
+    const msg = event.data;
+    if (msg && (msg.type === 'safeplace-ready' || msg.type === 'safeplace-response')) {
+        safePlaceReady = true;
+    }
+});
+
+// Wait for the iframe to be loaded (basic readiness check)
+safePlaceFrame.addEventListener('load', () => {
+    safePlaceIframeLoaded = true;
+    // Give the iframe app a moment to initialize its message listener
+    setTimeout(() => { safePlaceReady = true; }, 1500);
+});
+
+// Reload the SafePlace iframe to pick up fresh auth state.
+// This is needed because the user may sign in to SafePlace in a separate tab
+// after the iframe was already loaded with stale (unauthenticated) state.
+function reloadSafePlaceIframe() {
+    return new Promise((resolve) => {
+        safePlaceReady = false;
+        safePlaceIframeLoaded = false;
+        function onLoad() {
+            safePlaceFrame.removeEventListener('load', onLoad);
+            safePlaceIframeLoaded = true;
+            // Wait for the SafePlace app inside the iframe to initialize
+            setTimeout(() => { safePlaceReady = true; resolve(); }, 2000);
+        }
+        safePlaceFrame.addEventListener('load', onLoad);
+        safePlaceFrame.src = safePlaceFrame.src;
+    });
+}
+
+// When user returns to this tab, reload the iframe so it picks up
+// any auth changes made in another tab (e.g. signing into SafePlace)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        reloadSafePlaceIframe();
+    }
+});
+
 // Send a request to safe-place iframe and wait for response
 function safePlaceRequest(action, params = {}) {
     return new Promise((resolve, reject) => {
+        if (!safePlaceFrame.contentWindow) {
+            reject(new Error('Safe Place iframe not available. Try refreshing the page.'));
+            return;
+        }
+
         const id = 'sp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
         const timeout = setTimeout(() => {
             window.removeEventListener('message', handler);
-            reject(new Error('Safe Place not responding. Make sure you are signed in at Safe Place.'));
-        }, 10000);
+            reject(new Error('Safe Place not responding. Try refreshing the page or check your connection.'));
+        }, 15000);
 
         function handler(event) {
             if (event.origin !== SAFE_PLACE_ORIGIN) return;
@@ -1032,13 +1083,31 @@ function safePlaceRequest(action, params = {}) {
     });
 }
 
+// Check if user is authenticated in SafePlace.
+// On first failure, reload the iframe and retry once -- the user may have
+// signed in on another tab after the iframe was originally loaded.
+async function checkSafePlaceAuth() {
+    try {
+        await safePlaceRequest('ping');
+        return true;
+    } catch {
+        // First attempt failed -- reload iframe to pick up fresh auth state
+        try {
+            await reloadSafePlaceIframe();
+            await safePlaceRequest('ping');
+            return true;
+        } catch {
+            return false;
+        }
+    }
+}
+
 function handleSyncError(err) {
     setSyncStatus('');
-    const isAuthError = err.message && (
-        err.message.includes('Not authenticated') ||
-        err.message.includes('not responding') ||
-        err.message.includes('sign in')
-    );
+    const msg = err.message || '';
+    const isAuthError = msg.includes('Not authenticated') || msg.includes('not authenticated');
+    const isNotResponding = msg.includes('not responding');
+
     if (isAuthError) {
         showConfirmDialog(
             'Sign in Required',
@@ -1046,16 +1115,38 @@ function handleSyncError(err) {
             () => window.open('https://dat5ngon.github.io/safe-place/', '_blank'),
             'Open Safe Place'
         );
+    } else if (isNotResponding) {
+        showConfirmDialog(
+            'Connection Issue',
+            'Could not connect to Safe Place. Try refreshing the page. If the problem persists, open Safe Place in a new tab to check your sign-in status.',
+            () => window.open('https://dat5ngon.github.io/safe-place/', '_blank'),
+            'Open Safe Place'
+        );
     } else {
-        showConfirmDialog('Sync Error', err.message || 'An unknown error occurred.', () => {}, 'OK');
+        showConfirmDialog('Sync Error', msg || 'An unknown error occurred.', () => {}, 'OK');
     }
 }
 
 async function syncExportPlaylists() {
     if (playlists.length === 0) { showToast('No playlists to export'); return; }
     try {
-        setSyncStatus('Backing up...');
+        setSyncStatus('Checking sign-in...');
         exportBtn.disabled = true;
+
+        const isAuthed = await checkSafePlaceAuth();
+        if (!isAuthed) {
+            setSyncStatus('');
+            showConfirmDialog(
+                'Sign in Required',
+                'You need to sign in to Safe Place first to use Google Drive backup. Open Safe Place to sign in?',
+                () => window.open('https://dat5ngon.github.io/safe-place/', '_blank'),
+                'Open Safe Place'
+            );
+            exportBtn.disabled = false;
+            return;
+        }
+
+        setSyncStatus('Backing up...');
 
         await safePlaceRequest('save', {
             app: SAFE_PLACE_APP,
@@ -1074,6 +1165,20 @@ async function syncExportPlaylists() {
 
 async function syncImportPlaylists() {
     try {
+        setSyncStatus('Checking sign-in...');
+
+        const isAuthed = await checkSafePlaceAuth();
+        if (!isAuthed) {
+            setSyncStatus('');
+            showConfirmDialog(
+                'Sign in Required',
+                'You need to sign in to Safe Place first to use Google Drive backup. Open Safe Place to sign in?',
+                () => window.open('https://dat5ngon.github.io/safe-place/', '_blank'),
+                'Open Safe Place'
+            );
+            return;
+        }
+
         setSyncStatus('Restoring...');
 
         const result = await safePlaceRequest('load', {
