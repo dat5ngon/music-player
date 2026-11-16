@@ -964,3 +964,63 @@ body {
 .track-item.dragging {
     opacity: 0.5;
 }
+
+/* Sync Bar (Google Drive import/export) */
+.sync-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+}
+
+.btn-sync {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+    padding: 4px 10px;
+    letter-spacing: 0.5px;
+}
+
+.btn-sync:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-glow);
+}
+
+.btn-sync:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.btn-sync-danger {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    padding: 4px 8px;
+}
+
+.btn-sync-danger:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.sync-status {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    letter-spacing: 0.3px;
+    flex: 1;
+    text-align: right;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sync-status.sync-error {
+    color: var(--danger);
+}

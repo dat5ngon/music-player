@@ -702,5 +702,277 @@ function showToast(msg) {
     toastTimeout = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
+// ---- SafePlaceStorage (Google Drive wrapper, from safe-place project) ----
+class SafePlaceStorage {
+    constructor(accessToken, rootFolderId) {
+        this.accessToken = accessToken;
+        this.rootFolderId = rootFolderId;
+    }
+
+    async _api(path, options = {}) {
+        const url = path.startsWith('http') ? path : `https://www.googleapis.com/drive/v3${path}`;
+        const res = await fetch(url, {
+            ...options,
+            headers: { 'Authorization': `Bearer ${this.accessToken}`, ...options.headers },
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error?.message || `Drive API error: ${res.status}`);
+        }
+        return res;
+    }
+
+    async getOrCreateFolder(name, parentId) {
+        parentId = parentId || this.rootFolderId;
+        const query = `name='${name}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+        const res = await this._api(`/files?q=${encodeURIComponent(query)}&fields=files(id,name)`);
+        const data = await res.json();
+        if (data.files && data.files.length > 0) return data.files[0];
+
+        const createRes = await this._api('/files', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parentId] }),
+        });
+        return createRes.json();
+    }
+
+    async getAppFolder(appName) {
+        return this.getOrCreateFolder(appName, this.rootFolderId);
+    }
+
+    async findFile(name, folderId) {
+        folderId = folderId || this.rootFolderId;
+        const query = `name='${name}' and '${folderId}' in parents and trashed=false`;
+        const res = await this._api(`/files?q=${encodeURIComponent(query)}&fields=files(id,name,size,modifiedTime,mimeType)`);
+        const data = await res.json();
+        return data.files && data.files.length > 0 ? data.files[0] : null;
+    }
+
+    async uploadData(name, data, mimeType, folderId) {
+        folderId = folderId || this.rootFolderId;
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify({ name, parents: [folderId] })], { type: 'application/json' }));
+        form.append('file', new Blob([data], { type: mimeType }));
+        const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${this.accessToken}` },
+            body: form,
+        });
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error?.message || `Upload failed: ${res.status}`);
+        }
+        return res.json();
+    }
+
+    async downloadJSON(fileId) {
+        const res = await this._api(`/files/${fileId}?alt=media`);
+        return res.json();
+    }
+
+    async deleteFile(fileId) {
+        await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${this.accessToken}` },
+        });
+    }
+}
+
+// ---- Google Drive Sync ----
+const SAFE_PLACE_CLIENT_ID = '805871064081-6uh6ghboi12sd4p5vn26cmalfh48lgaj.apps.googleusercontent.com';
+const SAFE_PLACE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const SAFE_PLACE_APP_NAME = 'music-player';
+const SAFE_PLACE_FILE_NAME = 'playlists.json';
+
+let syncTokenClient = null;
+let syncStorage = null; // SafePlaceStorage instance
+let syncAppFolderId = null;
+
+const syncSignInBtn = document.getElementById('syncSignInBtn');
+const exportBtn = document.getElementById('exportBtn');
+const importBtn = document.getElementById('importBtn');
+const syncSignOutBtn = document.getElementById('syncSignOutBtn');
+const syncStatus = document.getElementById('syncStatus');
+
+function initSyncAuth() {
+    if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+        setTimeout(initSyncAuth, 300);
+        return;
+    }
+    syncTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: SAFE_PLACE_CLIENT_ID,
+        scope: SAFE_PLACE_SCOPES,
+        callback: handleSyncAuthResponse,
+    });
+    syncSignInBtn.disabled = false;
+}
+
+async function handleSyncAuthResponse(response) {
+    if (response.error) {
+        setSyncStatus('Sign-in failed', true);
+        return;
+    }
+
+    try {
+        setSyncStatus('Connecting...');
+
+        // Create storage instance and find/create root folder
+        syncStorage = new SafePlaceStorage(response.access_token, null);
+        const rootFolder = await syncStorage.getOrCreateFolder('SafePlace', 'root');
+        syncStorage.rootFolderId = rootFolder.id;
+
+        // Get app-specific folder
+        const appFolder = await syncStorage.getAppFolder(SAFE_PLACE_APP_NAME);
+        syncAppFolderId = appFolder.id;
+
+        // Show sync buttons, hide sign-in
+        syncSignInBtn.classList.add('hidden');
+        exportBtn.classList.remove('hidden');
+        importBtn.classList.remove('hidden');
+        syncSignOutBtn.classList.remove('hidden');
+        setSyncStatus('Connected');
+    } catch (err) {
+        setSyncStatus('Connection failed: ' + err.message, true);
+    }
+}
+
+function handleSyncSignIn() {
+    if (!syncTokenClient) {
+        setSyncStatus('Google API loading...', true);
+        return;
+    }
+    syncTokenClient.requestAccessToken({ prompt: 'consent' });
+}
+
+function handleSyncSignOut() {
+    if (syncStorage && syncStorage.accessToken) {
+        google.accounts.oauth2.revoke(syncStorage.accessToken);
+    }
+    syncStorage = null;
+    syncAppFolderId = null;
+
+    syncSignInBtn.classList.remove('hidden');
+    exportBtn.classList.add('hidden');
+    importBtn.classList.add('hidden');
+    syncSignOutBtn.classList.add('hidden');
+    setSyncStatus('');
+}
+
+async function exportPlaylists() {
+    if (!syncStorage || !syncAppFolderId) {
+        setSyncStatus('Not connected', true);
+        return;
+    }
+
+    try {
+        setSyncStatus('Exporting...');
+        exportBtn.disabled = true;
+
+        const data = JSON.stringify(playlists, null, 2);
+
+        // Check if file already exists -- delete it first to avoid duplicates
+        const existing = await syncStorage.findFile(SAFE_PLACE_FILE_NAME, syncAppFolderId);
+        if (existing) {
+            await syncStorage.deleteFile(existing.id);
+        }
+
+        await syncStorage.uploadData(
+            SAFE_PLACE_FILE_NAME,
+            data,
+            'application/json',
+            syncAppFolderId
+        );
+
+        setSyncStatus(`Exported ${playlists.length} playlist${playlists.length !== 1 ? 's' : ''}`);
+        showToast('Playlists exported to Google Drive');
+    } catch (err) {
+        setSyncStatus('Export failed: ' + err.message, true);
+    } finally {
+        exportBtn.disabled = false;
+    }
+}
+
+async function importPlaylists() {
+    if (!syncStorage || !syncAppFolderId) {
+        setSyncStatus('Not connected', true);
+        return;
+    }
+
+    try {
+        setSyncStatus('Importing...');
+        importBtn.disabled = true;
+
+        const file = await syncStorage.findFile(SAFE_PLACE_FILE_NAME, syncAppFolderId);
+        if (!file) {
+            setSyncStatus('No backup found on Drive');
+            showToast('No playlists found on Google Drive');
+            return;
+        }
+
+        const imported = await syncStorage.downloadJSON(file.id);
+        if (!Array.isArray(imported)) {
+            setSyncStatus('Invalid backup data', true);
+            return;
+        }
+
+        // Merge: add imported playlists that don't exist locally (by id)
+        const existingIds = new Set(playlists.map(p => p.id));
+        let added = 0;
+        let updated = 0;
+
+        for (const pl of imported) {
+            if (!pl.id || !pl.name) continue;
+            if (existingIds.has(pl.id)) {
+                // Update existing playlist tracks
+                const local = playlists.find(p => p.id === pl.id);
+                if (local) {
+                    local.tracks = pl.tracks || [];
+                    local.name = pl.name;
+                    updated++;
+                }
+            } else {
+                playlists.push(pl);
+                added++;
+            }
+        }
+
+        savePlaylists();
+        renderPlaylists();
+
+        const msg = [];
+        if (added > 0) msg.push(`${added} new`);
+        if (updated > 0) msg.push(`${updated} updated`);
+        const summary = msg.length > 0 ? msg.join(', ') : 'No changes';
+
+        setSyncStatus(`Imported: ${summary}`);
+        showToast(`Import complete: ${summary}`);
+    } catch (err) {
+        setSyncStatus('Import failed: ' + err.message, true);
+    } finally {
+        importBtn.disabled = false;
+    }
+}
+
+function setSyncStatus(msg, isError) {
+    syncStatus.textContent = msg;
+    syncStatus.className = 'sync-status' + (isError ? ' sync-error' : '');
+    if (msg && !isError) {
+        // Auto-clear success messages after 4s
+        setTimeout(() => {
+            if (syncStatus.textContent === msg) syncStatus.textContent = '';
+        }, 4000);
+    }
+}
+
+function setupSyncListeners() {
+    syncSignInBtn.addEventListener('click', handleSyncSignIn);
+    syncSignOutBtn.addEventListener('click', handleSyncSignOut);
+    exportBtn.addEventListener('click', exportPlaylists);
+    importBtn.addEventListener('click', importPlaylists);
+    initSyncAuth();
+}
+
 // ---- Start ----
 init();
+setupSyncListeners();

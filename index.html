@@ -70,6 +70,13 @@
                     <span>Playlists</span>
                     <button id="newPlaylistBtn" class="btn btn-small">+ New</button>
                 </h2>
+                <div class="sync-bar">
+                    <button id="syncSignInBtn" class="btn btn-small btn-sync" title="Sign in to Google Drive">☁ Sign In</button>
+                    <button id="exportBtn" class="btn btn-small btn-sync hidden" title="Export playlists to Google Drive">↑ Export</button>
+                    <button id="importBtn" class="btn btn-small btn-sync hidden" title="Import playlists from Google Drive">↓ Import</button>
+                    <button id="syncSignOutBtn" class="btn btn-small btn-sync-danger hidden" title="Sign out">✕</button>
+                    <span id="syncStatus" class="sync-status"></span>
+                </div>
                 <div id="playlistList" class="playlist-list"></div>
 
                 <!-- Playlist Tracks -->
@@ -138,6 +145,7 @@
     </div>
 
     <audio id="audioPlayer"></audio>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="app.js"></script>
 </body>
 </html>
