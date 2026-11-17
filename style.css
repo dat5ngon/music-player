@@ -1305,23 +1305,6 @@ body {
     opacity: 0.5;
 }
 
-/* Sync Status (Google Drive backup/restore) */
-.sync-status {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    letter-spacing: 0.3px;
-    flex: 1;
-    text-align: right;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.sync-status.sync-error {
-    color: var(--danger);
-}
-
 /* Archive Import */
 .inline-link {
     color: var(--accent);

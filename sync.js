@@ -1,10 +1,9 @@
-﻿// ---- Google Drive Sync (via SafePlace iframe + postMessage) ----
+// ---- Google Drive Sync (via SafePlace iframe + postMessage) ----
 const SAFE_PLACE_ORIGIN = 'https://dat5ngon.github.io';
 const SAFE_PLACE_APP = 'music-player';
 const SAFE_PLACE_FILE = 'playlists.json';
 const safePlaceFrame = document.getElementById('safePlaceFrame');
 const exportBtn = document.getElementById('exportBtn');
-const syncStatus = document.getElementById('syncStatus');
 
 function safePlaceRequest(action, params) {
     params = params || {};
@@ -27,42 +26,38 @@ function safePlaceRequest(action, params) {
 async function checkSafePlaceAuth() { try { await safePlaceRequest('ping'); return true; } catch { return false; } }
 
 function handleSyncError(err) {
-    setSyncStatus('');
     const msg = err.message || '';
     if (msg.includes('not authenticated') || msg.includes('Not authenticated'))
         showConfirmDialog('Sign in Required', 'Sign in to Safe Place first.', () => window.open('https://dat5ngon.github.io/safe-place/', '_blank'), 'Open Safe Place');
     else if (msg.includes('not responding'))
         showConfirmDialog('Connection Issue', 'Could not connect to Safe Place.', () => window.open('https://dat5ngon.github.io/safe-place/', '_blank'), 'Open Safe Place');
-    else showConfirmDialog('Sync Error', msg || 'An unknown error occurred.', () => {}, 'OK');
+    else showToast('Sync failed: ' + (msg || 'unknown error'));
 }
 
 async function syncExportPlaylists() {
     if (playlists.length === 0) { showToast('No playlists to export'); return; }
     try {
-        setSyncStatus('Checking sign-in...'); exportBtn.disabled = true;
+        showToast('Backing up...'); exportBtn.disabled = true;
         if (!(await checkSafePlaceAuth())) {
-            setSyncStatus(''); showConfirmDialog('Sign in Required', 'Sign in to Safe Place first.', () => window.open('https://dat5ngon.github.io/safe-place/', '_blank'), 'Open Safe Place');
+            showConfirmDialog('Sign in Required', 'Sign in to Safe Place first.', () => window.open('https://dat5ngon.github.io/safe-place/', '_blank'), 'Open Safe Place');
             exportBtn.disabled = false; return;
         }
-        setSyncStatus('Backing up...');
         await safePlaceRequest('save', { app: SAFE_PLACE_APP, filename: SAFE_PLACE_FILE, data: playlists });
-        setSyncStatus('Backed up ' + playlists.length + ' playlist' + (playlists.length !== 1 ? 's' : ''));
         showToast('Playlists backed up to Google Drive');
     } catch (err) { handleSyncError(err); } finally { exportBtn.disabled = false; }
 }
 
 async function syncImportPlaylists() {
     try {
-        setSyncStatus('Checking sign-in...');
+        showToast('Restoring from Google Drive...');
         if (!(await checkSafePlaceAuth())) {
-            setSyncStatus(''); showConfirmDialog('Sign in Required', 'Sign in to Safe Place first.', () => window.open('https://dat5ngon.github.io/safe-place/', '_blank'), 'Open Safe Place');
+            showConfirmDialog('Sign in Required', 'Sign in to Safe Place first.', () => window.open('https://dat5ngon.github.io/safe-place/', '_blank'), 'Open Safe Place');
             return;
         }
-        setSyncStatus('Restoring...');
         const result = await safePlaceRequest('load', { app: SAFE_PLACE_APP, filename: SAFE_PLACE_FILE });
-        if (!result.data) { setSyncStatus(''); showToast('No playlists found on Google Drive'); return; }
+        if (!result.data) { showToast('No playlists found on Google Drive'); return; }
         const imported = result.data;
-        if (!Array.isArray(imported)) { setSyncStatus(''); showConfirmDialog('Sync Error', 'Invalid backup data.', () => {}, 'OK'); return; }
+        if (!Array.isArray(imported)) { showToast('Invalid backup data'); return; }
         const existingIds = new Set(playlists.map(p => p.id));
         let added = 0, updated = 0;
         for (const pl of imported) {
@@ -77,12 +72,6 @@ async function syncImportPlaylists() {
         if (added > 0) parts.push(added + ' new');
         if (updated > 0) parts.push(updated + ' updated');
         const summary = parts.length > 0 ? parts.join(', ') : 'No changes';
-        setSyncStatus('Restored: ' + summary); showToast('Restore complete: ' + summary);
+        showToast('Restore complete: ' + summary);
     } catch (err) { handleSyncError(err); }
-}
-
-function setSyncStatus(msg, isError) {
-    syncStatus.textContent = msg;
-    syncStatus.className = 'sync-status' + (isError ? ' sync-error' : '');
-    if (msg && !isError) setTimeout(() => { if (syncStatus.textContent === msg) syncStatus.textContent = ''; }, 4000);
 }
