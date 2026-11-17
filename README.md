@@ -10,9 +10,11 @@ A browser-based music player that streams full-length free music from the [Inter
 - **Grid / List view** — toggle between grid and list layout for playlists
 - **Import from Internet Archive** — import tracks by item URL, identifier, or user profile (`@username`)
 - **Google Drive backup** — export/import playlists to Google Drive via [SafePlace](https://dat5ngon.github.io/safe-place/) (hidden iframe + postMessage)
+- **Offline playback** — download tracks to IndexedDB for offline listening within the browser; app shell cached via Service Worker
+- **Download to device** — save MP3 files directly to your device for use with any music player app
 - **Keyboard shortcuts** — Space to play/pause, Ctrl+Arrow to skip tracks
 - **Repeat modes** — off, repeat all, repeat one
-- **Responsive** — works on desktop and mobile
+- **Responsive** — works on desktop and mobile (including Android car screens)
 
 ## Usage
 
@@ -28,5 +30,9 @@ Live: [https://dat5ngon.github.io/music-player/](https://dat5ngon.github.io/musi
 |------|---------|
 | `index.html` | App structure — panels, modals, now-playing bar, hidden SafePlace iframe |
 | `style.css` | Dark theme styling (Outfit + Oswald fonts, gold accents) |
-| `app.js` | Internet Archive search, playback, playlists, Google Drive sync via postMessage |
+| `offline.js` | IndexedDB storage, download for offline, download to device |
+| `archive.js` | Internet Archive API — search, fetch tracks, relevance scoring |
+| `sync.js` | Google Drive sync via SafePlace iframe + postMessage |
+| `app.js` | State, DOM, init, search UI, rendering, playback, playlists, UI helpers |
+| `sw.js` | Service Worker — caches app shell for offline loading |
 | `CLAUDE.md` | AI assistant project instructions |

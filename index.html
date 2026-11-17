@@ -18,6 +18,7 @@
                 <h1>Free Music Player</h1>
             </div>
             <p class="subtitle">Full-length free music from Internet Archive</p>
+            <div id="offlineIndicator" class="offline-indicator hidden">⚡ Offline Mode</div>
         </header>
 
         <!-- Main Content -->
@@ -54,6 +55,8 @@
                         <h3 id="currentPlaylistName" title="Click to rename"></h3>
                         <div class="playlist-actions">
                             <button id="playAllBtn" class="btn btn-small btn-primary">► Play All</button>
+                            <button id="downloadAllBtn" class="btn btn-small btn-offline" title="Download all tracks for offline playback">↓ Offline</button>
+                            <button id="storageInfoBtn" class="btn btn-small" title="Offline storage info">📦</button>
                             <button id="deletePlaylistBtn" class="btn btn-small btn-danger">Delete</button>
                         </div>
                     </div>
@@ -170,6 +173,9 @@
 
     <audio id="audioPlayer"></audio>
     <iframe id="safePlaceFrame" src="https://dat5ngon.github.io/safe-place/" style="display:none"></iframe>
+    <script src="offline.js"></script>
+    <script src="archive.js"></script>
+    <script src="sync.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

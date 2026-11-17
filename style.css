@@ -637,8 +637,8 @@ body {
 /* Grid View */
 .playlist-list.grid-view {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
     padding: 4px;
     align-items: start;
 }
@@ -1230,6 +1230,38 @@ body {
     .panel {
         min-height: 250px;
     }
+
+    /* Grid view: force 2 columns on mobile portrait */
+    .playlist-list.grid-view {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .playlist-list.grid-view .playlist-cover-wrap {
+        aspect-ratio: 4 / 3;
+    }
+
+    .playlist-list.grid-view .playlist-item-text {
+        padding: 8px 10px;
+    }
+
+    .playlist-list.grid-view .playlist-name {
+        font-size: 0.78rem;
+    }
+
+    .playlist-list.grid-view .playlist-count {
+        font-size: 0.68rem;
+    }
+
+    .panel-title {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .panel-title-actions {
+        flex-wrap: wrap;
+        gap: 6px;
+    }
 }
 
 /* Error message */
@@ -1322,4 +1354,87 @@ body {
 
 .import-success {
     color: var(--success);
+}
+
+/* ---- Offline Features ---- */
+
+/* Offline indicator banner */
+.offline-indicator {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 4px 14px;
+    background: rgba(212, 168, 83, 0.15);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    color: var(--accent);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    animation: pulse 3s ease-in-out infinite;
+}
+
+/* Offline badge on tracks */
+.offline-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    background: rgba(212, 168, 83, 0.12);
+    color: var(--accent);
+    border-radius: 3px;
+    font-size: 0.68rem;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    margin-left: 4px;
+}
+
+/* Download offline button states */
+.dl-offline-btn {
+    font-size: 0.85rem !important;
+}
+
+.dl-offline-saved {
+    color: var(--success) !important;
+    border-color: var(--success) !important;
+}
+
+.dl-offline-saved:hover {
+    background: var(--danger) !important;
+    border-color: var(--danger) !important;
+    color: white !important;
+}
+
+/* Download to device button */
+.dl-device-btn {
+    font-size: 0.75rem !important;
+}
+
+/* Offline download button in playlist header */
+.btn-offline {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+}
+
+.btn-offline:hover {
+    background: var(--accent);
+    color: #0a0a0a;
+}
+
+/* Download progress bar (bottom of track item) */
+.dl-progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--border);
+    display: none;
+}
+
+.dl-progress-fill {
+    height: 100%;
+    width: 0;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
+    transition: width 0.2s ease;
 }

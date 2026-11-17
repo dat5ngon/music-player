@@ -9,14 +9,22 @@ Free Music Player is a static web app (HTML/CSS/JS) that plays full-length Creat
 ```
 index.html   -- search UI, playlist panel, now-playing bar, modals, hidden SafePlace iframe
 style.css    -- dark theme with gold accents (Outfit + Oswald fonts)
-app.js       -- Internet Archive API, playback, playlists, Google Drive sync
+offline.js   -- IndexedDB storage, download for offline, download to device
+archive.js   -- Internet Archive API (search, fetch tracks, relevance scoring)
+sync.js      -- Google Drive sync via SafePlace iframe + postMessage
+app.js       -- state, DOM, init, search UI, rendering, playback, playlists, UI helpers
+sw.js        -- Service Worker for app shell caching (offline support)
 ```
+
+Scripts load in order: `offline.js` -> `archive.js` -> `sync.js` -> `app.js`. All cross-file
+references are inside functions (resolved at runtime), so no circular dependency issues.
 
 ### Key concepts
 
 - **Internet Archive API** — searches `archive.org` for audio items, fetches metadata, streams MP3/OGG/M4A files directly.
 - **Playlists** — stored in `localStorage` under key `music_playlists`. Each playlist has `id`, `name`, `tracks[]`, `createdAt`.
 - **Google Drive sync** — uses a hidden iframe embedding `https://dat5ngon.github.io/safe-place/`. Communication is via `postMessage` (request/response pattern with unique IDs). No OAuth or Google API scripts in the music player itself — the user must be signed into SafePlace separately.
+- **Offline playback** — audio files are downloaded to IndexedDB for offline use. A Service Worker (`sw.js`) caches the app shell so the player loads without internet. Tracks can also be saved directly to the device via browser download.
 - **No build tools** — vanilla HTML/CSS/JS. No npm, no bundlers.
 
 ### SafePlace postMessage protocol
