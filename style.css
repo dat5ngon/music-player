@@ -1264,6 +1264,209 @@ body {
     }
 }
 
+/* Narrow overlay / split-screen mode */
+@media (max-width: 500px) {
+    .app {
+        padding: 8px;
+        padding-bottom: 160px;
+    }
+
+    /* Compact header */
+    .header {
+        padding: 10px 0 8px;
+        margin-bottom: 10px;
+    }
+
+    .header h1 {
+        font-size: 1.2rem;
+        letter-spacing: 2px;
+    }
+
+    .logo-icon {
+        font-size: 1.4rem;
+    }
+
+    .logo {
+        gap: 8px;
+    }
+
+    .subtitle {
+        font-size: 0.68rem;
+        letter-spacing: 1px;
+    }
+
+    /* Panel title: stack title and actions vertically */
+    .panel-title {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        margin-bottom: 8px;
+        padding-bottom: 8px;
+        font-size: 0.85rem;
+    }
+
+    .panel-title-left {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .panel-title-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .btn-small {
+        padding: 5px 10px;
+        font-size: 0.72rem;
+    }
+
+    /* Panel spacing */
+    .panel {
+        padding: 10px;
+        min-height: 200px;
+        border-radius: var(--radius);
+    }
+
+    .playlists-panel {
+        min-height: 300px;
+    }
+
+    /* Grid view: 2 columns, tighter */
+    .playlist-list.grid-view {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .playlist-list.grid-view .playlist-cover-wrap {
+        aspect-ratio: 1;
+    }
+
+    .playlist-list.grid-view .playlist-item-text {
+        padding: 6px 8px;
+    }
+
+    .playlist-list.grid-view .playlist-name {
+        font-size: 0.72rem;
+    }
+
+    .playlist-list.grid-view .playlist-count {
+        font-size: 0.65rem;
+    }
+
+    /* Playlist header: wrap actions */
+    .playlist-header {
+        gap: 6px;
+        margin-bottom: 8px;
+    }
+
+    .playlist-actions {
+        flex-wrap: wrap;
+        gap: 4px;
+    }
+
+    /* Track items: tighter */
+    .track-item {
+        gap: 8px;
+        padding: 8px 6px;
+    }
+
+    .track-image {
+        width: 40px;
+        height: 40px;
+    }
+
+    .track-title {
+        font-size: 0.82rem;
+    }
+
+    .track-artist {
+        font-size: 0.72rem;
+    }
+
+    /* Now Playing bar: vertical stack for narrow width */
+    .now-playing {
+        flex-direction: column;
+        padding: 8px 10px;
+        gap: 6px;
+    }
+
+    .now-playing-info {
+        width: 100%;
+        max-width: unset;
+    }
+
+    .np-image {
+        width: 36px;
+        height: 36px;
+    }
+
+    .np-title {
+        font-size: 0.78rem;
+    }
+
+    .np-artist {
+        font-size: 0.68rem;
+    }
+
+    .now-playing-controls {
+        width: 100%;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .control-btn {
+        width: 32px;
+        height: 32px;
+        font-size: 0.9rem;
+    }
+
+    .control-btn-main {
+        width: 38px;
+        height: 38px;
+        font-size: 1rem;
+    }
+
+    .now-playing-progress {
+        width: 100%;
+        order: unset;
+    }
+
+    .now-playing-volume {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .volume-bar {
+        width: 100%;
+        flex: 1;
+    }
+
+    /* Search bar */
+    .search-bar input {
+        padding: 8px 10px;
+        font-size: 0.8rem;
+    }
+
+    /* Modal: fit narrow overlay */
+    .modal-content {
+        min-width: unset;
+        max-width: 95%;
+        padding: 16px;
+    }
+
+    .modal-content h3 {
+        font-size: 0.95rem;
+    }
+
+    /* Toast position */
+    .toast {
+        bottom: 170px;
+        max-width: 90%;
+        font-size: 0.78rem;
+        padding: 8px 16px;
+    }
+}
+
 /* Error message */
 .error-state {
     display: flex;
